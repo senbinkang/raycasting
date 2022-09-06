@@ -5,15 +5,19 @@ class Background {
         this.context = game.context
         this.height = game.canvas.height
         this.width = game.canvas.width
-        this.lines = 3
-        this.columns = 3
+        this.lines = 10
+        this.columns = 10
 
         this.wallData = [
-            { y:0, x:0, },
-            { y:0, x:2, },
-            { y:2, x:2, },
+            {x: 0, y: 0},
+            {x: 1, y: 0},
+            {x: 2, y: 2},
+            {x: 2, y: 4},
+            {x: 5, y: 6},
+            {x: 6, y: 7},
         ]
     }
+
     get unit() {
         return this.width / this.columns
     }
@@ -21,50 +25,23 @@ class Background {
     draw() {
         // 画背景色
         this.drawBgColor()
-        // 墙体数量
-        this.drawWall()
         // 画网格
         this.drawLines()
+        // 画障碍物
+        this.drawWall()
+        // 画坐标
+        this.drawCoordinates()
     }
 
     drawBgColor() {
-        let context = this.context
         let color = 'rgb(0, 0, 0)'
-        let height = this.height
-        let width = this.width
-        drawRect(context, color, 0,0, width, height)
-    }
-
-    drawWall() {
-        let context = this.context
-        let unit = this.unit
-
-        for (let i = 0; i < this.wallData.length; i++) {
-            let c = this.wallData[i]
-            let x = c.x * unit
-            let y = c.y * unit
-
-            // 障碍物
-            let gridColor = 'rgb(61,198,152)'
-            drawRect(context, gridColor, x, y, unit, unit)
-
-            // 写坐标
-            let fontSize = 20
-            let textColor = 'rgb(255,255,255)'
-            let text = `(${c.y}, ${c.x})`
-            let textLen = context.measureText(text).width
-            let centerX = x + unit / 2
-            let centerY = y + unit / 2
-            let px = centerX - textLen
-            let py = centerY + fontSize / 2
-            drawText(context, fontSize, textColor, text, px, py)
-        }
+        drawRect(this.context, color, 0, 0, this.width, this.height)
     }
 
     drawLines() {
         let context = this.context
         let unit = this.unit
-        let color = 'white'
+        let color = 'rgba(255,255,255,0.4)'
 
         for (let i = 0; i < this.lines; i++) {
             let x = 0
@@ -80,6 +57,39 @@ class Background {
             let endX = (i + 1) * unit
             let endY = this.height
             drawLine(context, color, x, y, endX, endY)
+        }
+    }
+
+    drawWall() {
+        let context = this.context
+        let unit = this.unit
+
+        for (let i = 0; i < this.wallData.length; i++) {
+            let c = this.wallData[i]
+            let x = c.x * unit
+            let y = c.y * unit
+
+            // 障碍物
+            let gridColor = 'rgb(61,198,152)'
+            drawRect(context, gridColor, x, y, unit, unit)
+        }
+    }
+
+    // 画坐标
+    drawCoordinates() {
+        let context = this.context
+        let unit = this.unit
+
+        let fontSize = 10
+        let textColor = 'rgba(255,255,255, 0.7)'
+        for (let x = 0; x < this.columns; x++) {
+            for (let y = 0; y < this.lines; y++) {
+                let text = `(${x}, ${y})`
+                let textLen = context.measureText(text).width / 2 / unit
+                let tx = (x + fontSize / unit) * unit
+                let ty = (y + textLen) * unit
+                drawText(context, fontSize, textColor, text, tx, ty)
+            }
         }
     }
 }

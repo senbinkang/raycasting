@@ -1,17 +1,11 @@
 class Vec {
     constructor(x, y) {
-        // x = Math.abs(x)
-        // y = Math.abs(y)
-        let r = Math.sqrt(x * x + y * y)
-        let cos = x / r
-        let sin = y / r
-        let tan = y / x
-        let offset = 5
+        this.x = x
+        this.y = y
+    }
 
-        this.x = cos * offset
-        this.y = sin * offset
-        // this.x = x
-        // this.y = y
+    get len() {
+        return Math.sqrt(this.x * this.x + this.y * this.y)
     }
 
     add(v) {
@@ -31,74 +25,64 @@ class Vec {
             return this
         }
     }
+
+    clone() {
+        return new Vec(this.x, this.y)
+    }
 }
 
 class Player {
     constructor(game, bg) {
         this.game = game
         this.bg = bg
+        this.unit = bg.unit
+        this.lines = bg.lines
+        this.columns = bg.columns
         this.wallData = bg.wallData
 
+        this.digits = 0.0001
         this.width = game.canvas.width
         this.height = game.canvas.height
-        this.offset = 1
-        this.player = {
-            x: Math.floor(game.canvas.width / 2),
-            y: Math.floor(game.canvas.height / 2),
-            r: 8,
-            degrees: 30,
-            dir: new Vec(4, 3),
-        }
+        let x = 4.5
+        let y = 3.5
+        this.position = new Vec(x, y)
+        this.currentPoint = {x, y}
+        this.r = 10
+        this.degrees = 90
+        this.includedAngle = 18
+        this.offset = 5
+        this.speed = 0.1
+        this.isLog = false
+        this.endPointArr = []
 
         this.init()
     }
 
-    setInArea() {
-        let { x, y, r } = this.player
-        r += 2
-
-        if (x + r > this.width) {
-            this.player.x = this.width - r
-        }
-        if (x - r < 0) {
-            this.player.x = r
-        }
-
-        if (y + r > this.height) {
-            this.player.y = this.height - r
-        }
-        if (y - r < 0) {
-            this.player.y = r
-        }
-    }
-
-    add(x, y) {
-        this.player.x += x
-        this.player.y += y
-
-        this.setInArea()
-    }
-
     get radians() {
-        return this.player.degrees * (Math.PI / 180)
+        return this.degrees * (Math.PI / 180)
     }
 
-    // get degrees() {
-    //     return this.player.radians * (180 / Math.PI)
-    // }
+    get dir() {
+        let sin = Math.sin(this.radians)
+        let cos = Math.cos(this.radians)
+        return new Vec(cos, sin)
+    }
+
+    getDir(rad) {
+        let sin = Math.sin(rad)
+        let cos = Math.cos(rad)
+        return new Vec(cos, sin)
+    }
+
+    getRadians(deg) {
+        return deg * (Math.PI / 180)
+    }
 
     init() {
         this.registerAction()
     }
 
-    rotate(rad) {
-        let {x, y} = this.player
-        let x2 = x * Math.cos(rad)
-        let y2 = y * Math.sin(rad)
-        return new Vec(x2, y2)
-    }
-
-    check360(deg, offset, op) {
+    checkLarge360(deg, offset, op) {
         if (op === '+') {
             deg += offset
         } else if (op === '-') {
@@ -112,329 +96,215 @@ class Player {
         }
         return deg
     }
+
+    setInArea() {
+        let {x, y} = this.position
+        let r = this.r
+        let unit = this.unit
+        let minX = r / unit
+        let minY = r / unit
+        let maxX = (this.width - r) / unit
+        let maxY = (this.height - r) / unit
+
+        if (x > maxX) {
+            this.position.x = maxX
+        }
+        if (x < minX) {
+            this.position.x = minX
+        }
+        if (y > maxY) {
+            this.position.y = maxY
+        }
+        if (y < minY) {
+            this.position.y = minY
+        }
+
+        // 遇到障碍物
+        // this.setOutWall()
+    }
+
+    setOutWall() {
+        let {x, y} = this.position
+        let unit = this.unit
+        let r = this.r / unit
+
+        x = Number(x.toFixed(4))
+        y = Number(y.toFixed(4))
+
+        for (let o of this.wallData) {
+            let minX = o.x - r
+            let minY = o.y - r
+            let maxX = o.x + unit + r
+            let maxY = o.y + unit + r
+
+            // if (!this.isLog) {
+            //     log('x, y', o.x, o.y, 'r', r, '| min', minX, minY, 'max', maxX, maxY)
+            // }
+
+            if ((x > minX && y > minY) && (x < maxX && y < maxY)) {
+                log('--', x, y, '|', 'min', minX, minY, 'max', maxX, maxY)
+                // this.position.y = minY
+                // this.position.x = minX
+                this.position.x = minX
+                //  this.position.y = minY
+
+            }
+        }
+    }
+
     registerAction() {
         let g = this.game
 
         // 向左
         g.registerAction('a', () => {
-            this.player.degrees = this.check360(this.player.degrees, this.offset, '-')
-            this.player.dir = this.rotate(this.radians)
+            this.degrees = this.degrees -= this.offset
+            // this.degrees = this.checkLarge360(this.degrees, this.offset, '-')
         })
         // 向右
         g.registerAction('d', () => {
-            this.player.degrees = this.check360(this.player.degrees, this.offset, '+')
-            this.player.dir = this.rotate(this.radians)
+            this.degrees = this.degrees += this.offset
+            // this.degrees = this.checkLarge360(this.degrees, this.offset, '+')
         })
 
         // 前进
         g.registerAction('w', () => {
-            let {x, y} = this.player.dir
-            this.add(x, y)
+            this.position.add(this.dir.mult(this.speed))
+            this.setInArea()
         })
         // 后退
         g.registerAction('s', () => {
-            let {x, y} = this.player.dir
-            this.add(-x, -y)
+            this.position.add(this.dir.mult(-this.speed))
+            this.setInArea()
         })
     }
 
-    draw() {
-        this.drawRay()
-        this.drawPlayer()
-    }
+    getEndPoint(px, py, rad) {
+        let tan = Math.tan(rad)
+        let minX = Math.floor(px)
+        let minY = Math.floor(py)
+        let maxX = minX + 1
+        let maxY = minY + 1
 
-    drawPlayer() {
-        let context = this.game.context
-        context.save()
-        context.strokeStyle = 'rgb(88,221,253)'
-        let {x, y, r} = this.player
-        context.beginPath()
-        context.arc(x, y, r, 0, 2 * Math.PI)
-        context.fillStyle = 'rgb(88,221,253)'
-        context.fill()
-        context.stroke()
-        context.restore()
-    }
+        let dir1 = this.getDir(rad)
+        let x1 = dir1.x < 0 ? minX : maxX
+        let w1 = Math.abs(px - x1)
+        let h1 = Math.abs(w1 * tan)
+        let y1 = dir1.y < 0 ? (py - h1) : py + h1
 
-    // 获取射线终点
-    getEndPoint0() {
-        let {x: px, y: py, degrees: pd} = this.player
-        // 斜边长
-        let r = px / Math.cos(this.radians)
-        // 对边长
-        let len = Math.sqrt(r * r - px * px)
+        let dir2 = this.getDir(rad)
+        let y2 = dir2.y < 0 ? minY : maxY
+        let h2 = Math.abs(py - y2)
+        let w2 = Math.abs(h2 / tan)
+        let x2 = dir2.x < 0 ? px - w2 : px + w2
 
-        let x = 0
-        let y = 0
-        if ((pd % 360 >= 0) && (pd % 360 <= 90)) {
-            y = py - len > this.width ? 400 : py - len
-            x = 0
-        } else if ((pd % 360 > 90) && (pd % 360 <= 180)) {
-            y = py - len > this.width ? 400 : py - len
-            x = 400
-        } else if ((pd % 360 > 180) && (pd % 360 <= 270)) {
-            y = (py + len) > this.height ? 400 : py + len
-            x = 400
-        } else if ((pd % 360 > 270) && (pd % 360 <= 360)) {
-            y = (py + len) > this.height ? 400 : py + len
-            x = 0
+        x1 = Number(x1.toFixed(4))
+        y1 = Number(y1.toFixed(4))
+        x2 = Number(x2.toFixed(4))
+        y2 = Number(y2.toFixed(4))
+
+        // 最终输出的点
+        let x, y
+        let dig = this?.digits || 0.0001
+        let v1 = new Vec(x1 - px, y1 - py)
+        let v2 = new Vec(x2 - px, y2 - py)
+        if (v1.len < v2.len) {
+            if (x1 < px) {
+                x = x1 - dig
+            } else {
+                x = x1 + dig
+            }
+
+            if (y1 < py) {
+                y = y1 - dig
+            } else {
+                y = y1 + dig
+            }
+            // log('v1 >>>>', this.degrees, x.toFixed(3), y.toFixed(3))
+        } else {
+            if (x2 < px) {
+                x = x2 + dig
+            } else {
+                x = x2 - dig
+            }
+
+            if (y2 < py) {
+                y = y2 - dig
+            } else {
+                y = y2 + dig
+            }
+            // log('v2 >>>>', this.degrees, x.toFixed(3), y.toFixed(3))
         }
-        // else {
-        //     y = (py + len) > this.height ? 400 : py + len
-        //     x = 0
-        // }
-        log('len',len.toFixed(0), 'deg', this.player.degrees,
-            '| x', x.toFixed(0), 'y', y.toFixed(0)
-        )
 
-        // let x = px
-        // log('xx', x, 'yyy', y)
         return {
             x: x,
             y: y,
         }
     }
-    getEndPointVec() {
-        // let toBorder = true
-        // let endP = new Vec(this.player.x, this.player.y)
-        // let index = 0
-        // while (toBorder) {
-        //     index++
-        //     endP.add(this.player.dir)
-        //     if ((endP.x <= 0 || endP.x >= this.width) || (endP.y <= 0 || endP.y >= this.height)) {
-        //         toBorder = false
-        //     }
-        // }
-        // log('index', index)
 
-        let deg = this.player.degrees
+    isStop(x, y) {
+        return ((x >= this.columns || x < 0) || (y >= this.lines || y < 0))
+    }
 
-        let {x: px, y: py} = this.player
-        let cos = Math.cos(this.radians)
-        let sin = Math.sin(this.radians)
-        let tan = Math.tan(this.radians)
+    isWall(x, y) {
+        for (let o of this.wallData) {
+            let minX = o.x
+            let minY = o.y
+            let maxX = o.x + 1
+            let maxY = o.y + 1
+            if ((x >= minX && x <= maxX) && (y >= minY && y <= maxY)) {
+                return true
+            }
+        }
+        return false
+    }
 
-        // let 临边 = px
-        // let 斜边 = Math.abs(临边 / cos)
-        // let 对边 = Math.abs(斜边 * sin)
-        // let y0 = 对边
-        // log('临边', 临边, '|  对边', 对边.toFixed(1))
-        // let endX = px + px / cos
-        // let endY = py + py / sin
+    drawPlayer() {
+        let color = 'rgb(88,221,253)'
+        let {x, y} = this.position
+        x = x * this.unit
+        y = y * this.unit
+        drawArc(this.game.context, color, x, y, this.r)
+    }
 
-        let endX
-        let endY
-        if (deg >= 0 && deg < 90) {
-            let 临边 = px
-            endX = px - 临边
+    drawRay(color = 'red', rad = this.radians) {
+        let unit = this.unit
+        this.currentPoint = this.position.clone()
 
-            let 对边 = 临边 * tan
-            endY = py - 对边
-        } else if (deg >= 90 && deg < 180) {
-            let rad = Math.PI - this.radians
-            let cos2 = Math.cos(rad)
-            let sin2 = Math.sin(rad)
-            let tan2 = Math.tan(rad)
-            // log('cos2', cos2.toFixed(1), '|  sin2', sin2.toFixed(1))
+        // 获取终点
+        for (let i = 0; i < this.lines * 2; i++) {
+            let {x, y} = this.currentPoint
+            let {x: endX, y: endY} = this.getEndPoint(x, y, rad)
+            drawLine(this.game.context, color, x * unit, y * unit, endX * unit, endY * unit)
 
-            if (cos2 >= sin2) {
-                endX = py / tan2
-                endY = 0
+            let bool = this.isWall(endX, endY) || this.isStop(endX, endY)
+            if (!bool) {
+                this.currentPoint = {x: endX, y: endY}
             } else {
-                let 对边 = this.width - px
-                endX = this.width
-                endY = 对边 / tan2
+                this.endPointArr.push({x: endX, y: endY})
+                break
             }
-            // let 右边 = this.width - px
-            //
-            // let 临边 = cos2
-            // endX = px + 临边
-            //
-            // let 对边 = sin2
-            // endY = py - 对边
-        }
-        // let rad = this.radians
-        // // let rad = Math.PI - this.radians
-        // let cos2 = Math.cos(rad)
-        // let sin2 = Math.sin(rad)
-        // let tan2 = Math.tan(rad)
-        // if (cos2 >= sin2) {
-        //     endX = py / tan2
-        //     endY = 0
-        // } else {
-        //     let 对边 = this.width - px
-        //     endX = this.width
-        //     endY = 对边 / tan2
-        // }
-
-        let w = px - endX
-        let h = py - endY
-        let borderH = py
-        let borderX = w / h * borderH
-
-        let 大斜边 = Math.sqrt((endY - py) * (endY - py) + (endX - px) * (endX - px))
-        let 大临边 = Math.abs(endX - px)
-        let 大对边 = Math.abs(endY - py)
-        let tan0 = Math.tan(大对边 / 大临边)
-        // log('大斜边', 大斜边.toFixed(1), '大临边', 大临边.toFixed(1), '大对边', 大对边.toFixed(1))
-
-        // let 小对边 =
-        if (endY < 0) {
-            endY = 0
-
-            let 小对边 = py
-            let 小临边 = 小对边 / (大对边 / 大临边)
-            endX = 小临边
-        }
-
-        // log('borderX', borderX.toFixed(1), 'borderH', borderH.toFixed(1), '| endX', endX.toFixed(1), 'endY', endY.toFixed(1))
-        log('endX', endX.toFixed(1), 'endY', endY.toFixed(1))
-        return new Vec(endX, endY)
-    }
-    getEndPoint1(px, py) {
-        let deg = this.player.degrees
-        let rad = this.radians
-        let sin = Math.sin(rad)
-        let cos = Math.cos(rad)
-        let tan = Math.tan(rad)
-
-        let 右边 = this.width - px
-        let x = 右边
-        let y = 200
-
-        return {
-            x,
-            y,
-        }
-    }
-    getY(px, py) {
-        let deg = this.player.degrees
-        let tan = Math.tan(this.radians)
-
-        let 大临边 = this.width - px
-        let 大对边 = 大临边 * tan
-
-        let y
-        if (deg >= 0 && deg < 180) {
-            y = py + 大对边
-        } else {
-            y = py - 大对边
-        }
-
-        let x
-        // 算出 与边界交点的 x 坐标
-        if (y > this.height) {
-            let 小对边 = this.height - py
-            let 小临边 = 小对边 / tan
-            x = px + 小临边
-            log(`小对边 ${小对边}`)
-        }
-
-        return y
-    }
-
-    isInArea(x, y) {
-        return (x >= 0 && x <= this.width) && (y >= 0 && y <= this.height)
-    }
-
-    getEndPoint(px, py) {
-        let deg = this.player.degrees
-        let tan = Math.tan(this.radians)
-
-        let x1, y1, x2, y2, w1, h1, w2, h2
-        if (deg <=90 || deg >= 270) {
-            // x 在边缘，最大的三角形
-            x1 = this.width
-            w1 = Math.abs(this.width - px)
-            h1 = Math.abs(w1 * tan)
-            if (deg <= 90) {
-                y1 = py + h1
-            }
-            if (deg >= 270) {
-                y1 = py - h1
-            }
-
-            // y 在边缘，小三角形
-            if (deg >= 270) {
-                y2 = 0
-            }
-            if (deg <= 90) {
-                y2 = this.height
-            }
-            h2 = Math.abs(y2 - py)
-            w2 = Math.abs(h2 / tan)
-            x2 = px + w2
-        } else {
-            // 方向在左边
-            // x 在边缘，最大的三角形
-            x1 = 0
-            w1 = Math.abs(px)
-            h1 = Math.abs(w1 * tan)
-            if (deg > 90 && deg <= 180) {
-                y1 = py + h1
-            }
-            if (deg > 180 && deg < 270) {
-                y1 = py - h1
-            }
-
-            // y 在边缘，小三角形
-            if (deg > 90 && deg <= 180) {
-                y2 = this.height
-            }
-            if (deg > 180 && deg < 270) {
-                y2 = 0
-            }
-            h2 = Math.abs(y2 - py)
-            w2 = Math.abs(h2 / tan)
-            x2 = px - w2
-        }
-
-        // 最终输出的点
-        let x, y
-        if (this.isInArea(x1, y1)) {
-            x = x1
-            y = y1
-        }
-        if (this.isInArea(x2, y2)) {
-            x = x2
-            y = y2
-        }
-
-        // log(`deg ${deg} |  x ${x.toFixed(0)}  y ${y.toFixed(0)}`)
-        return {
-            x,
-            y,
         }
     }
 
-    drawRay() {
-        let context = this.game.context
-        let color = 'red'
-        let {x, y} = this.player
-        let {x: endX, y: endY} = this.getEndPoint(x, y)
+    drawAllRay() {
+        let min = this.degrees - this.includedAngle
+        let max = this.degrees + this.includedAngle
+        // log('min', min, 'max', max)
+        // 夹角分成 100 份
+        let offset = (max - min) / 100
 
-        drawLine(context, color, x, y, endX, endY)
+        for (let i = min; i < max; i += offset) {
+            let color = i === this.degrees ? 'red' : 'rgba(255,255,255,0.5)'
+            let rad = this.getRadians(i)
+            this.drawRay(color, rad)
+        }
     }
 
+    draw() {
+        this.drawAllRay()
+        this.drawRay()
+        this.drawPlayer()
+    }
     update() {
-    }
-
-    // 边界检测
-    checkBorder(cell) {
-        let borderX = this.width - this.unit
-        let borderY = this.height - this.unit
-
-        if (cell.x > borderX) {
-            cell.x = 0
-        }
-        if (cell.y > borderY) {
-            cell.y = 0
-        }
-        if (cell.x < 0) {
-            cell.x = borderX
-        }
-        if (cell.y < 0) {
-            cell.y = borderY
-        }
     }
 }

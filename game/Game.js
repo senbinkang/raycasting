@@ -2,6 +2,9 @@ class Game {
     constructor() {
         this.canvas = e('#id-canvas')
         this.context = this.canvas.getContext('2d')
+        this.canvasImage = e('#id-canvas-image')
+        this.contextImage = this.canvasImage.getContext('2d')
+
         window.fps = 30
         this.scene = null
         this.keysdown = {}
