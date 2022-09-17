@@ -7,6 +7,8 @@ class Screen {
 
         this.player = player
         this.position = player.position
+        this.lines = player.lines
+        this.columns = player.columns
 
         this.defaultWallColor = new Color(255,162,162)
         this.isLog = true
@@ -32,6 +34,21 @@ class Screen {
         return arr
     }
 
+    getColor(pColor, len){
+        let {r, g, b} = pColor
+        let lines = this.lines
+        let columns = this.columns
+        let maxLen = Math.sqrt(lines * lines + columns * columns)
+        // 等号右边为 大概的一个数（根据个人想要的光线效果来）
+        maxLen -= columns + 1
+        let ra = (maxLen / len) > 1 ? 1 : maxLen / len
+        r *= ra
+        g *= ra
+        b *= ra
+
+        return new Color(r, g, b)
+    }
+
     drawWall(context = this.context) {
         let px = this.position.x
         let py = this.position.y
@@ -44,7 +61,8 @@ class Screen {
             let c = endPointArr[i]
             // 射线的射线长度
             let len = new Vec(c.x - px, c.y - py).len
-            let color = c.color || this.defaultWallColor
+            let color = this.getColor(c.color, len)
+
             // 每一条竖线的宽度
             let width = this.width / 100
             // 通过比率和距离，得到的高度

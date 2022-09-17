@@ -20,7 +20,7 @@ class Player {
         // 夹角
         this.includedAngle = 18
         this.degOffset = 5
-        this.speed = 0.5
+        this.speed = 0.1
         this.isLog = false
         this.endPointArr = []
         this.defaultWallColor = new Color(255,162,162)

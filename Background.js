@@ -13,7 +13,6 @@ class Background {
             {i: 1, x: 1, y: 0, color: Color.Blue, },
             {i: 2, x: 2, y: 2, color: Color.Green, },
             {i: 3, x: 2, y: 4, color: Color.Green, },
-            {i: 4, x: 4, y: 5, color: Color.Green, },
             {i: 5, x: 5, y: 6, color: Color.Blue, },
             {i: 6, x: 6, y: 7, color: Color.Blue, },
         ]
