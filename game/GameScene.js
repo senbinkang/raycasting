@@ -11,7 +11,7 @@ class GameScene {
         let g = this.game
         this.bg = new Background(g)
         this.player = new Player(g, this.bg)
-        this.screen = new Screen(g, this.player, this.bg)
+        this.screen = new Screen(g, this.player)
     }
 
     update() {

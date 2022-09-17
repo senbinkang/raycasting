@@ -1,59 +1,29 @@
-class Vec {
-    constructor(x, y) {
-        this.x = x
-        this.y = y
-    }
-
-    get len() {
-        return Math.sqrt(this.x * this.x + this.y * this.y)
-    }
-
-    add(v) {
-        this.x += v.x
-        this.y += v.y
-        return this
-    }
-
-    mult(v) {
-        if (v instanceof Vec) {
-            this.x *= v.x
-            this.y *= v.y
-            return this
-        } else {
-            this.x *= v
-            this.y *= v
-            return this
-        }
-    }
-
-    clone() {
-        return new Vec(this.x, this.y)
-    }
-}
-
 class Player {
     constructor(game, bg) {
         this.game = game
-        this.bg = bg
         this.unit = bg.unit
         this.lines = bg.lines
         this.columns = bg.columns
         this.wallData = bg.wallData
 
-        this.digits = 0.0001
-        this.width = game.canvas.width
-        this.height = game.canvas.height
+        // 玩家初始位置
         let x = 4.5
         let y = 3.5
         this.position = new Vec(x, y)
         this.currentPoint = {x, y}
+        // 玩家半径
         this.r = 10
+        this.digits = 0.0001
+
+        // 角度
         this.degrees = 90
+        // 夹角
         this.includedAngle = 18
-        this.offset = 5
-        this.speed = 0.1
+        this.degOffset = 5
+        this.speed = 0.5
         this.isLog = false
         this.endPointArr = []
+        this.defaultWallColor = new Color(255,162,162)
 
         this.init()
     }
@@ -63,15 +33,11 @@ class Player {
     }
 
     get dir() {
-        let sin = Math.sin(this.radians)
-        let cos = Math.cos(this.radians)
-        return new Vec(cos, sin)
+        return new Vec(Math.cos(this.radians), Math.sin(this.radians))
     }
 
     getDir(rad) {
-        let sin = Math.sin(rad)
-        let cos = Math.cos(rad)
-        return new Vec(cos, sin)
+        return new Vec(Math.cos(rad), Math.sin(rad))
     }
 
     getRadians(deg) {
@@ -81,101 +47,85 @@ class Player {
     init() {
         this.registerAction()
     }
-
-    checkLarge360(deg, offset, op) {
-        if (op === '+') {
-            deg += offset
-        } else if (op === '-') {
-            deg -= offset
-        }
-
-        if (deg >= 360) {
-            deg -= 360
-        } else if (deg < 0) {
-            deg += 360
-        }
-        return deg
-    }
-
-    setInArea() {
-        let {x, y} = this.position
-        let r = this.r
-        let unit = this.unit
-        let minX = r / unit
-        let minY = r / unit
-        let maxX = (this.width - r) / unit
-        let maxY = (this.height - r) / unit
-
-        if (x > maxX) {
-            this.position.x = maxX
-        }
-        if (x < minX) {
-            this.position.x = minX
-        }
-        if (y > maxY) {
-            this.position.y = maxY
-        }
-        if (y < minY) {
-            this.position.y = minY
-        }
-
-        // 遇到障碍物
-        // this.setOutWall()
-    }
-
-    setOutWall() {
-        let {x, y} = this.position
-        let unit = this.unit
-        let r = this.r / unit
-
-        x = Number(x.toFixed(4))
-        y = Number(y.toFixed(4))
-
-        for (let o of this.wallData) {
-            let minX = o.x - r
-            let minY = o.y - r
-            let maxX = o.x + unit + r
-            let maxY = o.y + unit + r
-
-            // if (!this.isLog) {
-            //     log('x, y', o.x, o.y, 'r', r, '| min', minX, minY, 'max', maxX, maxY)
-            // }
-
-            if ((x > minX && y > minY) && (x < maxX && y < maxY)) {
-                log('--', x, y, '|', 'min', minX, minY, 'max', maxX, maxY)
-                // this.position.y = minY
-                // this.position.x = minX
-                this.position.x = minX
-                //  this.position.y = minY
-
-            }
-        }
-    }
-
     registerAction() {
         let g = this.game
 
         // 向左
         g.registerAction('a', () => {
-            this.degrees = this.degrees -= this.offset
-            // this.degrees = this.checkLarge360(this.degrees, this.offset, '-')
+            this.degrees = this.degrees -= this.degOffset
         })
         // 向右
         g.registerAction('d', () => {
-            this.degrees = this.degrees += this.offset
-            // this.degrees = this.checkLarge360(this.degrees, this.offset, '+')
+            this.degrees = this.degrees += this.degOffset
         })
 
         // 前进
         g.registerAction('w', () => {
-            this.position.add(this.dir.mult(this.speed))
-            this.setInArea()
+            this.forward()
+            this.setInArea('w')
         })
         // 后退
         g.registerAction('s', () => {
-            this.position.add(this.dir.mult(-this.speed))
-            this.setInArea()
+            this.goBack()
+            this.setInArea('s')
         })
+    }
+
+    forward() {
+        this.position.add(this.dir.mult(this.speed))
+    }
+
+    goBack() {
+        this.position.sub(this.dir.mult(this.speed))
+    }
+
+    move(dir) {
+        if (dir === 'w') {
+            this.goBack()
+        } else if (dir === 's') {
+            this.forward()
+        }
+    }
+
+    // 在框内，且遇到障碍物停止
+    setInArea(dir) {
+        let {x, y} = this.position
+        let r = this.r / this.unit
+        let borderMinX = r
+        let borderMinY = r
+        let borderMaxX = this.columns - r
+        let borderMaxY = this.lines - r
+
+        if (x > borderMaxX || x < borderMinX || y > borderMaxY || y < borderMinY) {
+            this.move(dir)
+        }
+
+        // 遇到障碍物
+        for (let o of this.wallData) {
+            let minX = o.x - r
+            let minY = o.y - r
+            // 1 为格子坐标，乘以 单位(unit) 就是在 canvas 上的坐标
+            let maxX = o.x + 1 + r
+            let maxY = o.y + 1 + r
+
+            // 进到障碍物里面
+            if ((x > minX && y > minY) && (x < maxX && y < maxY)) {
+                this.move(dir)
+            }
+        }
+    }
+
+    getWallInfo(x, y) {
+        for (let o of this.wallData) {
+            let minX = o.x
+            let minY = o.y
+            let maxX = o.x + 1
+            let maxY = o.y + 1
+            if ((x >= minX && x <= maxX) && (y >= minY && y <= maxY)) {
+                return o.color
+            }
+        }
+        return this.defaultWallColor
     }
 
     getEndPoint(px, py, rad) {
@@ -204,7 +154,7 @@ class Player {
 
         // 最终输出的点
         let x, y
-        let dig = this?.digits || 0.0001
+        let dig = this.digits || 0.0001
         let v1 = new Vec(x1 - px, y1 - py)
         let v2 = new Vec(x2 - px, y2 - py)
         if (v1.len < v2.len) {
@@ -219,7 +169,6 @@ class Player {
             } else {
                 y = y1 + dig
             }
-            // log('v1 >>>>', this.degrees, x.toFixed(3), y.toFixed(3))
         } else {
             if (x2 < px) {
                 x = x2 + dig
@@ -232,20 +181,23 @@ class Player {
             } else {
                 y = y2 + dig
             }
-            // log('v2 >>>>', this.degrees, x.toFixed(3), y.toFixed(3))
         }
 
+        let color = this.getWallInfo(x, y) || this.defaultWallColor
         return {
-            x: x,
-            y: y,
+            x,
+            y,
+            color,
         }
     }
 
     isStop(x, y) {
-        return ((x >= this.columns || x < 0) || (y >= this.lines || y < 0))
-    }
+        // 判断是否遇到边界
+        if ((x >= this.columns || x < 0) || (y >= this.lines || y < 0)) {
+            return true
+        }
 
-    isWall(x, y) {
+        // 判断是否遇到障碍物
         for (let o of this.wallData) {
             let minX = o.x
             let minY = o.y
@@ -255,56 +207,57 @@ class Player {
                 return true
             }
         }
+
         return false
     }
 
+    drawAllRay() {
+        let min = this.degrees - this.includedAngle
+        let max = this.degrees + this.includedAngle
+        // 两边夹角分成 100 份
+        let degOffset = (max - min) / 100
+
+        for (let i = min; i < max; i += degOffset) {
+            let color = new Color(255,255,255,0.5)
+            let rad = this.getRadians(i)
+            this.drawRay(color, rad)
+        }
+    }
+
+    drawRay(color = Color.Red, rad = this.radians) {
+        let unit = this.unit
+        this.currentPoint = this.position.clone()
+
+        // 获取每个格子的终点
+        for (let i = 0; i < this.lines * 2; i++) {
+            let {x, y} = this.currentPoint
+            let {x: endX, y: endY, color: pColor} = this.getEndPoint(x, y, rad)
+            drawLine(this.game.context, color, x * unit, y * unit, endX * unit, endY * unit)
+
+            // 判断实现是否被挡住
+            let bool = this.isStop(endX, endY)
+            if (!bool) {
+                this.currentPoint = {x: endX, y: endY, color: pColor}
+            } else {
+                this.endPointArr.push({x: endX, y: endY, color: pColor})
+                break
+            }
+        }
+    }
+
     drawPlayer() {
-        let color = 'rgb(88,221,253)'
+        // 随便给一个玩家的颜色
+        let color = new Color(88,221,253)
         let {x, y} = this.position
         x = x * this.unit
         y = y * this.unit
         drawArc(this.game.context, color, x, y, this.r)
     }
 
-    drawRay(color = 'red', rad = this.radians) {
-        let unit = this.unit
-        this.currentPoint = this.position.clone()
-
-        // 获取终点
-        for (let i = 0; i < this.lines * 2; i++) {
-            let {x, y} = this.currentPoint
-            let {x: endX, y: endY} = this.getEndPoint(x, y, rad)
-            drawLine(this.game.context, color, x * unit, y * unit, endX * unit, endY * unit)
-
-            let bool = this.isWall(endX, endY) || this.isStop(endX, endY)
-            if (!bool) {
-                this.currentPoint = {x: endX, y: endY}
-            } else {
-                this.endPointArr.push({x: endX, y: endY})
-                break
-            }
-        }
-    }
-
-    drawAllRay() {
-        let min = this.degrees - this.includedAngle
-        let max = this.degrees + this.includedAngle
-        // log('min', min, 'max', max)
-        // 夹角分成 100 份
-        let offset = (max - min) / 100
-
-        for (let i = min; i < max; i += offset) {
-            let color = i === this.degrees ? 'red' : 'rgba(255,255,255,0.5)'
-            let rad = this.getRadians(i)
-            this.drawRay(color, rad)
-        }
-    }
-
     draw() {
         this.drawAllRay()
         this.drawRay()
         this.drawPlayer()
-    }
-    update() {
+        this.isLog = true
     }
 }
