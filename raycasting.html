@@ -5,16 +5,67 @@
     <meta name="viewport"
           content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
-    <title>rayCasting</title>
-    <style media="screen">
+    <title>Raycasting — Wolfenstein 风格伪 3D 引擎</title>
+    <style>
+        body {
+            margin: 12px;
+            font-family: -apple-system, "Helvetica Neue", Arial, sans-serif;
+            background: #1a1a1a;
+            color: #ddd;
+        }
+        h2 {
+            margin: 0 0 12px 0;
+        }
+        .wrap {
+            display: flex;
+            align-items: flex-start;
+            gap: 16px;
+        }
         canvas {
-            border: 1px solid #ccc;
+            background: #000;
+            image-rendering: pixelated;
+            border: 1px solid #444;
+            display: block;
+        }
+        .label {
+            font-size: 12px;
+            color: #888;
+            margin-bottom: 4px;
+        }
+        .hint {
+            margin-top: 12px;
+            font-size: 13px;
+            color: #888;
+            line-height: 1.7;
+        }
+        kbd {
+            background: #333;
+            border: 1px solid #555;
+            border-radius: 3px;
+            padding: 1px 6px;
+            font-family: inherit;
+            color: #ccc;
         }
     </style>
 </head>
 <body>
-    <canvas id="id-canvas" width="400" height="400"></canvas>
-    <canvas id="id-canvas-image" width="400" height="400"></canvas>
+    <h2>Raycasting — Wolfenstein 风格伪 3D 引擎</h2>
+    <div class="wrap">
+        <div>
+            <div class="label">小地图（Top-down Map）</div>
+            <canvas id="id-canvas" width="400" height="400"></canvas>
+        </div>
+        <div>
+            <div class="label">3D 视图（Raycasted View）</div>
+            <canvas id="id-canvas-image" width="640" height="400"></canvas>
+        </div>
+    </div>
+
+    <div class="hint">
+        <b>操作：</b>
+        <kbd>w</kbd> 前进　<kbd>s</kbd> 后退　<kbd>a</kbd> 左转　<kbd>d</kbd> 右转　<kbd>q</kbd>/<kbd>e</kbd> 左右平移
+    </div>
+
     <script src="utils.js"></script>
     <script src="game/Game.js"></script>
     <script src="game/GameScene.js"></script>

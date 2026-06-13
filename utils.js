@@ -1,43 +1,35 @@
-// 一些方法
+// 一些工具方法
 const log = console.log.bind(console)
 const e = sel => document.querySelector(sel)
 
-const clone = (obj) => JSON.parse(JSON.stringify(obj))
-
+// 画线段（不带 save/restore，减少每帧 Canvas 状态切换开销）
 const drawLine = (context, color, x, y, endX, endY) => {
-    context.save()
     context.strokeStyle = color.stringColor()
     context.beginPath()
     context.moveTo(x, y)
     context.lineTo(endX, endY)
     context.stroke()
-    context.restore()
 }
 
+// 画矩形
 const drawRect = (context, color, x, y, width, height) => {
-    context.save()
     context.fillStyle = color.stringColor()
     context.fillRect(x, y, width, height)
-    context.restore()
 }
 
+// 画文本
 const drawText = (context, fontSize, textColor, text, x, y) => {
-    context.save()
-    context.font=`${fontSize}px Georgia`
+    context.font = `${fontSize}px Georgia`
     context.fillStyle = textColor.stringColor()
     context.fillText(text, x, y)
-    context.restore()
 }
 
+// 画圆（填充圆）
 const drawArc = (context, color, x, y, r) => {
-    context.save()
-    context.strokeStyle = color.stringColor()
     context.beginPath()
     context.arc(x, y, r, 0, 2 * Math.PI)
     context.fillStyle = color.stringColor()
     context.fill()
-    context.stroke()
-    context.restore()
 }
 
 

@@ -1,263 +1,171 @@
 class Player {
     constructor(game, bg) {
         this.game = game
+        this.bg = bg
         this.unit = bg.unit
         this.lines = bg.lines
         this.columns = bg.columns
-        this.wallData = bg.wallData
+        this.worldMap = bg.worldMap
 
-        // 玩家初始位置
-        let x = 4.5
-        let y = 3.5
-        this.position = new Vec(x, y)
-        this.currentPoint = {x, y}
-        // 玩家半径
+        // 玩家格坐标（初始位置：地图中上区域的空地，朝右）
+        this.position = new Vec(1.5, 4.5)
+
+        // 玩家像素半径（在小地图上画圆用）
         this.r = 10
-        this.digits = 0.0001
 
-        // 角度
-        this.degrees = 90
-        // 夹角
-        this.includedAngle = 18
-        this.degOffset = 5
-        this.speed = 0.1
-        this.isLog = false
-        this.endPointArr = []
-        this.defaultWallColor = new Color(255,162,162)
+        // === 朝向系统：用向量替代角度 ===
+        // dir = 玩家朝向单位向量（长度 1）
+        // plane = 相机平面向量（⊥ dir，长度决定 FOV）
+        // 初始朝 X 轴正方向（向右），FOV ≈ 2 * atan(0.66) ≈ 66°
+        this.dirX = 1.0
+        this.dirY = 0.0
+        this.planeX = 0.0
+        this.planeY = 0.66
+
+        // === 速度（单位：格/秒，弧度/秒），帧内会乘以 deltaTime ===
+        this.moveSpeed = 2.5    // 格/秒
+        this.rotSpeed = 1.2     // 弧度/秒 ≈ 69°/秒
+
+        // 显示颜色
+        this.rayColor = new Color(255, 255, 255, 0.4)
+        this.dirArrowColor = new Color(255, 200, 0, 1.0)
+        this.playerColor = new Color(88, 221, 253)
 
         this.init()
     }
 
-    get radians() {
-        return this.degrees * (Math.PI / 180)
-    }
-
-    get dir() {
-        return new Vec(Math.cos(this.radians), Math.sin(this.radians))
-    }
-
-    getDir(rad) {
-        return new Vec(Math.cos(rad), Math.sin(rad))
-    }
-
-    getRadians(deg) {
-        return deg * (Math.PI / 180)
-    }
+    // === Screen.js 读取的快捷 getter ===
+    get posX() { return this.position.x }
+    get posY() { return this.position.y }
 
     init() {
         this.registerAction()
     }
+
+    // 按键回调：每个回调接收 dt（秒），用于帧率无关的移动
     registerAction() {
         let g = this.game
 
-        // 向左
-        g.registerAction('a', () => {
-            this.degrees = this.degrees -= this.degOffset
-        })
-        // 向右
-        g.registerAction('d', () => {
-            this.degrees = this.degrees += this.degOffset
-        })
+        // 旋转（绕玩家 Z 轴）
+        g.registerAction('a', (dt) => this.rotate(-this.rotSpeed * dt))
+        g.registerAction('d', (dt) => this.rotate(+this.rotSpeed * dt))
 
-        // 前进
-        g.registerAction('w', () => {
-            this.forward()
-            this.setInArea('w')
-        })
-        // 后退
-        g.registerAction('s', () => {
-            this.goBack()
-            this.setInArea('s')
-        })
+        // 前后移动
+        g.registerAction('w', (dt) => this.tryMove(this.dirX, this.dirY, this.moveSpeed * dt))
+        g.registerAction('s', (dt) => this.tryMove(-this.dirX, -this.dirY, this.moveSpeed * dt))
+
+        // 左右平移（strafing，沿相机平面方向）
+        g.registerAction('q', (dt) => this.tryMove(-this.planeX, -this.planeY, this.moveSpeed * dt))
+        g.registerAction('e', (dt) => this.tryMove(this.planeX, this.planeY, this.moveSpeed * dt))
     }
 
-    forward() {
-        this.position.add(this.dir.mult(this.speed))
+    // 二维旋转矩阵：同时旋转 dir 和 plane
+    rotate(theta) {
+        let cos = Math.cos(theta)
+        let sin = Math.sin(theta)
+
+        let oldDirX = this.dirX
+        this.dirX = this.dirX * cos - this.dirY * sin
+        this.dirY = oldDirX * sin + this.dirY * cos
+
+        let oldPlaneX = this.planeX
+        this.planeX = this.planeX * cos - this.planeY * sin
+        this.planeY = oldPlaneX * sin + this.planeY * cos
     }
 
-    goBack() {
-        this.position.sub(this.dir.mult(this.speed))
-    }
+    // 分轴碰撞：先尝试 X 方向，再尝试 Y 方向。撞到墙就不移动那一个轴。
+    // 这样贴墙走也能滑行。
+    tryMove(dx, dy, step) {
+        // 归一化方向向量（plane 不是单位向量，需要归一化）
+        let len = Math.sqrt(dx * dx + dy * dy)
+        if (len < 0.0001) return
+        dx /= len
+        dy /= len
 
-    move(dir) {
-        if (dir === 'w') {
-            this.goBack()
-        } else if (dir === 's') {
-            this.forward()
-        }
-    }
+        // 碰撞半径（以格为单位），值越大越不容易卡进墙角，但贴墙的距离越远
+        let r = 0.2
 
-    // 在框内，且遇到障碍物停止
-    setInArea(dir) {
-        let {x, y} = this.position
-        let r = this.r / this.unit
-        let borderMinX = r
-        let borderMinY = r
-        let borderMaxX = this.columns - r
-        let borderMaxY = this.lines - r
-
-        if (x > borderMaxX || x < borderMinX || y > borderMaxY || y < borderMinY) {
-            this.move(dir)
-        }
-
-        // 遇到障碍物
-        for (let o of this.wallData) {
-            let minX = o.x - r
-            let minY = o.y - r
-            // 1 为格子坐标，乘以 单位(unit) 就是在 canvas 上的坐标
-            let maxX = o.x + 1 + r
-            let maxY = o.y + 1 + r
-
-            // 进到障碍物里面
-            if ((x > minX && y > minY) && (x < maxX && y < maxY)) {
-                this.move(dir)
-            }
-        }
-    }
-
-    getWallInfo(x, y) {
-        for (let o of this.wallData) {
-            let minX = o.x
-            let minY = o.y
-            let maxX = o.x + 1
-            let maxY = o.y + 1
-            if ((x >= minX && x <= maxX) && (y >= minY && y <= maxY)) {
-                return o.color
-            }
-        }
-        return this.defaultWallColor
-    }
-
-    getEndPoint(px, py, rad) {
-        let tan = Math.tan(rad)
-        let minX = Math.floor(px)
-        let minY = Math.floor(py)
-        let maxX = minX + 1
-        let maxY = minY + 1
-
-        let dir1 = this.getDir(rad)
-        let x1 = dir1.x < 0 ? minX : maxX
-        let w1 = Math.abs(px - x1)
-        let h1 = Math.abs(w1 * tan)
-        let y1 = dir1.y < 0 ? (py - h1) : py + h1
-
-        let dir2 = this.getDir(rad)
-        let y2 = dir2.y < 0 ? minY : maxY
-        let h2 = Math.abs(py - y2)
-        let w2 = Math.abs(h2 / tan)
-        let x2 = dir2.x < 0 ? px - w2 : px + w2
-
-        x1 = Number(x1.toFixed(4))
-        y1 = Number(y1.toFixed(4))
-        x2 = Number(x2.toFixed(4))
-        y2 = Number(y2.toFixed(4))
-
-        // 最终输出的点
-        let x, y
-        let dig = this.digits || 0.0001
-        let v1 = new Vec(x1 - px, y1 - py)
-        let v2 = new Vec(x2 - px, y2 - py)
-        if (v1.len < v2.len) {
-            if (x1 < px) {
-                x = x1 - dig
-            } else {
-                x = x1 + dig
-            }
-
-            if (y1 < py) {
-                y = y1 - dig
-            } else {
-                y = y1 + dig
-            }
-        } else {
-            if (x2 < px) {
-                x = x2 + dig
-            } else {
-                x = x2 - dig
-            }
-
-            if (y2 < py) {
-                y = y2 - dig
-            } else {
-                y = y2 + dig
-            }
+        // === 尝试 X 方向移动 ===
+        let newX = this.position.x + dx * step
+        // 检查四角：newX ± r 与 position.y ± r
+        let checkX1 = newX + Math.sign(dx) * r
+        let checkX2 = newX + (dx > 0 ? r : -r)
+        let y1 = this.position.y - r * 0.5
+        let y2 = this.position.y + r * 0.5
+        if (this.cellIsEmpty(checkX1, y1) &&
+            this.cellIsEmpty(checkX1, y2) &&
+            this.cellIsEmpty(checkX2, y1) &&
+            this.cellIsEmpty(checkX2, y2)) {
+            this.position.x = newX
         }
 
-        let color = this.getWallInfo(x, y) || this.defaultWallColor
-        return {
-            x,
-            y,
-            color,
+        // === 尝试 Y 方向移动 ===
+        let newY = this.position.y + dy * step
+        let checkY1 = newY + Math.sign(dy) * r
+        let checkY2 = newY + (dy > 0 ? r : -r)
+        let x1 = this.position.x - r * 0.5
+        let x2 = this.position.x + r * 0.5
+        if (this.cellIsEmpty(x1, checkY1) &&
+            this.cellIsEmpty(x2, checkY1) &&
+            this.cellIsEmpty(x1, checkY2) &&
+            this.cellIsEmpty(x2, checkY2)) {
+            this.position.y = newY
         }
     }
 
-    isStop(x, y) {
-        // 判断是否遇到边界
-        if ((x >= this.columns || x < 0) || (y >= this.lines || y < 0)) {
-            return true
-        }
-
-        // 判断是否遇到障碍物
-        for (let o of this.wallData) {
-            let minX = o.x
-            let minY = o.y
-            let maxX = o.x + 1
-            let maxY = o.y + 1
-            if ((x >= minX && x <= maxX) && (y >= minY && y <= maxY)) {
-                return true
-            }
-        }
-
-        return false
+    // 判断某个格坐标 (gx, gy) 是否为空地（不在地图里也视为墙）
+    cellIsEmpty(gx, gy) {
+        let mx = Math.floor(gx)
+        let my = Math.floor(gy)
+        if (mx < 0 || my < 0 || mx >= this.columns || my >= this.lines) return false
+        return this.worldMap[my][mx] === 0
     }
 
-    drawAllRay() {
-        let min = this.degrees - this.includedAngle
-        let max = this.degrees + this.includedAngle
-        // 两边夹角分成 100 份
-        let degOffset = (max - min) / 100
+    // ========== 绘制（仅在小地图上） ==========
 
-        for (let i = min; i < max; i += degOffset) {
-            let color = new Color(255,255,255,0.5)
-            let rad = this.getRadians(i)
-            this.drawRay(color, rad)
-        }
-    }
-
-    drawRay(color = Color.Red, rad = this.radians) {
-        let unit = this.unit
-        this.currentPoint = this.position.clone()
-
-        // 获取每个格子的终点
-        for (let i = 0; i < this.lines * 2; i++) {
-            let {x, y} = this.currentPoint
-            let {x: endX, y: endY, color: pColor} = this.getEndPoint(x, y, rad)
-            drawLine(this.game.context, color, x * unit, y * unit, endX * unit, endY * unit)
-
-            // 判断实现是否被挡住
-            let bool = this.isStop(endX, endY)
-            if (!bool) {
-                this.currentPoint = {x: endX, y: endY, color: pColor}
-            } else {
-                this.endPointArr.push({x: endX, y: endY, color: pColor})
-                break
-            }
-        }
+    draw() {
+        this.drawPlayer()
+        this.drawDirArrow()
     }
 
     drawPlayer() {
-        // 随便给一个玩家的颜色
-        let color = new Color(88,221,253)
-        let {x, y} = this.position
-        x = x * this.unit
-        y = y * this.unit
-        drawArc(this.game.context, color, x, y, this.r)
+        let unit = this.unit
+        let px = this.position.x * unit
+        let py = this.position.y * unit
+        drawArc(this.game.context, this.playerColor, px, py, this.r)
     }
 
-    draw() {
-        this.drawAllRay()
-        this.drawRay()
-        this.drawPlayer()
-        this.isLog = true
+    // 画：朝向黄色短箭头 + FOV 两条白色边界线（表示视野范围）
+    drawDirArrow() {
+        let unit = this.unit
+        let startX = this.position.x * unit
+        let startY = this.position.y * unit
+
+        // 朝向箭头（沿 dir 方向，1.5 格长）
+        let endX = startX + this.dirX * unit * 1.5
+        let endY = startY + this.dirY * unit * 1.5
+        drawLine(this.game.context, this.dirArrowColor, startX, startY, endX, endY)
+
+        // FOV 左边界（dir - plane 方向，归一化）
+        let leftX = this.dirX - this.planeX
+        let leftY = this.dirY - this.planeY
+        let leftLen = Math.sqrt(leftX * leftX + leftY * leftY)
+        leftX /= leftLen
+        leftY /= leftLen
+        drawLine(this.game.context, this.rayColor,
+            startX, startY,
+            startX + leftX * unit * 3,
+            startY + leftY * unit * 3)
+
+        // FOV 右边界（dir + plane 方向）
+        let rightX = this.dirX + this.planeX
+        let rightY = this.dirY + this.planeY
+        let rightLen = Math.sqrt(rightX * rightX + rightY * rightY)
+        rightX /= rightLen
+        rightY /= rightLen
+        drawLine(this.game.context, this.rayColor,
+            startX, startY,
+            startX + rightX * unit * 3,
+            startY + rightY * unit * 3)
     }
 }

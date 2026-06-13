@@ -8,13 +8,29 @@ class Background {
         this.lines = 10
         this.columns = 10
 
-        this.wallData = [
-            {i: 0, x: 0, y: 0, color: Color.Red, },
-            {i: 1, x: 1, y: 0, color: Color.Blue, },
-            {i: 2, x: 2, y: 2, color: Color.Green, },
-            {i: 3, x: 2, y: 4, color: Color.Green, },
-            {i: 5, x: 5, y: 6, color: Color.Blue, },
-            {i: 6, x: 6, y: 7, color: Color.Blue, },
+        // 颜色表：索引 = worldMap 中的值
+        // 0 = 空（不画），1 = 红，2 = 蓝，3 = 绿，4 = 橙
+        this.wallColors = [
+            null,
+            new Color(220, 70, 70),
+            new Color(70, 130, 220),
+            new Color(70, 200, 100),
+            new Color(240, 170, 60),
+        ]
+
+        // worldMap[y][x] = 墙类型（0 表示空地）
+        // 10x10 地图：外圈红色边界 + 蓝色房间 + 绿色柱子 + 橙色走廊
+        this.worldMap = [
+            [1,1,1,1,1,1,1,1,1,1],
+            [1,0,0,0,0,0,0,0,0,1],
+            [1,0,2,2,0,0,0,3,0,1],
+            [1,0,2,2,0,0,0,0,0,1],
+            [1,0,0,0,0,0,0,0,0,1],
+            [1,0,0,0,4,4,4,0,0,1],
+            [1,0,0,0,0,0,0,0,0,1],
+            [1,0,3,0,0,0,0,3,0,1],
+            [1,0,0,0,0,0,0,0,0,1],
+            [1,1,1,1,1,1,1,1,1,1],
         ]
     }
 
@@ -23,13 +39,9 @@ class Background {
     }
 
     draw() {
-        // 画背景色
         this.drawBgColor()
-        // 画障碍物
         this.drawWall()
-        // 画坐标
         this.drawCoordinates()
-        // 画网格
         this.drawLines()
     }
 
@@ -58,21 +70,20 @@ class Background {
         }
     }
 
+    // 从 worldMap 二维数组中读取墙壁并绘制
     drawWall(context = this.context) {
         let unit = this.unit
-
-        for (let i = 0; i < this.wallData.length; i++) {
-            let c = this.wallData[i]
-            let x = c.x * unit
-            let y = c.y * unit
-            let gridColor = c.color
-
-            // 画障碍物
-            drawRect(context, gridColor, x, y, unit, unit)
+        for (let y = 0; y < this.lines; y++) {
+            for (let x = 0; x < this.columns; x++) {
+                let cell = this.worldMap[y][x]
+                if (cell > 0) {
+                    let color = this.wallColors[cell] || new Color(255, 162, 162)
+                    drawRect(context, color, x * unit, y * unit, unit, unit)
+                }
+            }
         }
     }
 
-    // 画坐标
     drawCoordinates(context = this.context) {
         let unit = this.unit
         let fontSize = 10
