@@ -48,7 +48,7 @@
     </style>
 </head>
 <body>
-    <h2>Raycasting — Wolfenstein 风格伪 3D 引擎（阶段 A~F 完成版）</h2>
+    <h2>Raycasting — Wolfenstein 风格伪 3D 引擎（武器+音效+门 完成版）</h2>
     <div class="wrap">
         <div>
             <canvas id="id-canvas" width="400" height="400"></canvas>
@@ -60,13 +60,16 @@
 
     <div class="hint">
         <b>操作：</b><br>
-        移动：<kbd>W</kbd> 前进　<kbd>S</kbd> 后退　<kbd>Q</kbd> 左平移　<kbd>E</kbd> 右平移<br>
+        移动：<kbd>W</kbd> 前进　<kbd>S</kbd> 后退　<kbd>Q</kbd> 左平移<br>
         旋转：<kbd>A</kbd> 左转　<kbd>D</kbd> 右转　｜　或 <kbd>点击画面</kbd> 启动鼠标视角（Esc 解除）<br>
         加速跑：按住 <kbd>Shift</kbd> + W<br>
+        门：<kbd>E</kbd> 开关面向的门（金色格子）<br>
+        射击：<kbd>左键按住</kbd> 连射，命中敌人扣血，消灭后消失<br>
         物品：走到 <span style="color:#ffd640">黄色方块</span>（医疗包）会自动拾取<br>
         敌人：<span style="color:#ff5050">红色圆形</span>——会主动朝你移动（需视线畅通）<br>
         <br>
-        <b>当前特性（阶段 A~F）：</b> 标准 DDA + 鱼眼校正　｜　程序化墙面纹理（红砖/蓝砖/石头/木头）　｜　地板/天花板纹理投射　｜　雾效　｜　方向光 + 手电筒　｜　精灵系统（敌人/物品，zBuffer 遮挡）　｜　小地图（墙体/玩家/精灵/朝向扇形）　｜　FPS HUD
+        <b>音效：</b>走路脚步声 / 开门关门 / 射击 / 敌人受伤 / BGM<br>
+        <b>特性：</b>标准 DDA + 鱼眼校正　｜　程序化墙面纹理（红砖/蓝砖/石头/木头）　｜　地板/天花板纹理投射　｜　雾效 + 手电筒　｜　精灵系统（敌人/物品，zBuffer 遮挡）　｜　小地图（墙体/玩家/精灵/朝向）　｜　武器 HUD + 准星
     </div>
 
     <!-- 按依赖顺序加载：utils → textures → 各模块 → 主入口 -->
@@ -74,10 +77,12 @@
     <script src="textures.js"></script>
     <script src="Background.js"></script>
     <script src="Player.js"></script>
-    <script src="game/Game.js"></script>
     <script src="game/Sprite.js"></script>
     <script src="game/SpriteManager.js"></script>
     <script src="game/Screen.js"></script>
+    <script src="game/AudioManager.js"></script>
+    <script src="game/Weapon.js"></script>
+    <script src="game/Game.js"></script>
     <script src="game/GameScene.js"></script>
 
     <script src="index.js"></script>

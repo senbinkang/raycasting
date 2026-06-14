@@ -1,6 +1,7 @@
 // game/GameScene.js
 // 组合 Background（地图）+ Player（玩家）+ Screen（3D 视图）+
-//       TextureManager（程序化纹理）+ SpriteManager（精灵管理）
+//       TextureManager（程序化纹理）+ SpriteManager（精灵管理）+
+//       AudioManager（音效）+ Weapon（武器射击）
 // 形成一个完整可玩的场景。
 
 class GameScene {
@@ -30,6 +31,12 @@ class GameScene {
 
         // 3D 视图
         this.screen = new Screen(g, this.player, this.bg, this.textureManager, this.spriteManager)
+
+        // 音效（Web Audio API 程序化合成）
+        this.audioManager = window.audioManager
+
+        // 武器
+        this.weapon = new Weapon(this.player, this.bg, this.spriteManager)
     }
 
     // 根据现有地图自动选择几个有代表性的空地放置精灵
@@ -81,10 +88,23 @@ class GameScene {
         return result
     }
 
-    // 每帧：驱动精灵更新（AI / 捡取）
+    // 每帧：驱动精灵更新（AI / 捡取）+ 门动画
     update(dt) {
         if (this.spriteManager) {
             this.spriteManager.update(dt, this.player, this.bg)
+        }
+        // 门动画推进
+        this.bg.updateDoors(dt)
+        // 武器状态更新（后坐力衰减）
+        if (this.weapon) {
+            this.weapon.update(dt)
+        }
+        // 走路脚步声（自动间隔触发）
+        if (this.audioManager) {
+            let moving = !!(this.game.keysdown['w'] || this.game.keysdown['s'] ||
+                          this.game.keysdown['a'] || this.game.keysdown['d'] ||
+                          this.game.keysdown['q'])
+            this.audioManager.updateStep(dt, moving)
         }
     }
 

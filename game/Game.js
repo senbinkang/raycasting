@@ -70,6 +70,28 @@ class Game {
         // 禁止右键菜单
         this.canvas.addEventListener('contextmenu', (e) => e.preventDefault())
         this.canvasImage.addEventListener('contextmenu', (e) => e.preventDefault())
+
+        // 左键射击
+        this.canvasImage.addEventListener('mousedown', (e) => {
+            if (e.button === 0 && this.scene && this.scene.weapon) {
+                this.scene.weapon.triggerDown = true
+            }
+        })
+        this.canvasImage.addEventListener('mouseup', (e) => {
+            if (e.button === 0 && this.scene && this.scene.weapon) {
+                this.scene.weapon.triggerDown = false
+            }
+        })
+        this.canvas.addEventListener('mousedown', (e) => {
+            if (e.button === 0 && this.scene && this.scene.weapon) {
+                this.scene.weapon.triggerDown = true
+            }
+        })
+        this.canvas.addEventListener('mouseup', (e) => {
+            if (e.button === 0 && this.scene && this.scene.weapon) {
+                this.scene.weapon.triggerDown = false
+            }
+        })
     }
 
     registerAction(key, callback) {
@@ -99,6 +121,19 @@ class Game {
         if (this.scene && typeof this.scene.update === 'function') {
             this.scene.update(this.dt)
         }
+
+        // 左键按住射击
+        if (this.scene && this.scene.weapon && this.scene.weapon.triggerDown) {
+            let enemy = this.scene.weapon.fire()
+            if (enemy) {
+                let dead = enemy.takeDamage(35)
+                if (dead) {
+                    if (window.audioManager) window.audioManager.playEnemyDeath()
+                } else {
+                    if (window.audioManager) window.audioManager.playHit()
+                }
+            }
+        }
     }
 
     clear() {
@@ -107,6 +142,10 @@ class Game {
 
     draw() {
         if (this.scene) this.scene.draw()
+        // 武器在最上层绘制（覆盖一切）
+        if (this.scene && this.scene.weapon) {
+            this.scene.weapon.draw(this.contextImage, this.canvasImage.width, this.canvasImage.height)
+        }
         this.drawHUD()
     }
 

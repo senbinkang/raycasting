@@ -1,12 +1,12 @@
 // Player.js
-// 玩家控制 + 分轴碰撞（墙 + 精灵阻挡精灵）+ 精灵捡取
+// 玩家控制 + 分轴碰撞（墙 + 精灵阻挡精灵）+ 精灵捡取 + 门交互
 //
 // 使用: new Player(game, bg, spriteManager)
 //   - spriteManager 可省略（若当前阶段不需要）
 //
 // 按键：
 //   W/S = 前/后移动   A/D = 左/右旋转
-//   Q/E = 左右平移（strafe）
+//   Q = 左平移        E = 开关门（面向的门）
 //   Shift = 加速跑（game.update() 中调用 setSprinting）
 
 class Player {
@@ -44,6 +44,10 @@ class Player {
 
         // 碰撞半径（与墙/阻挡精灵的最小距离）
         this.collisionRadius = 0.2
+
+        // HP
+        this.hp = 100
+        this.maxHp = 100
 
         // 颜色
         this.playerColor = new Color(88, 221, 253)
@@ -96,7 +100,7 @@ class Player {
 
         // 左右平移（strafe）：沿 -plane 方向平移，垂直于朝向向量 dir
         g.registerAction('q', (dt) => this.tryMove(-this.planeX, -this.planeY, this.moveSpeed * dt))
-        g.registerAction('e', (dt) => this.tryMove(this.planeX, this.planeY, this.moveSpeed * dt))
+        g.registerAction('e', (dt) => this.tryInteractDoor())
 
         // 方向键兼容（可选的）
         g.registerAction('ArrowUp', (dt) => this.tryMove(this.dirX, this.dirY, this.moveSpeed * dt))
@@ -146,11 +150,30 @@ class Player {
         }
     }
 
+    // 按 E 键：检测玩家面前 1 格是否有门，有则切换开关
+    tryInteractDoor() {
+        let mx = Math.floor(this.position.x + this.dirX)
+        let my = Math.floor(this.position.y + this.dirY)
+        if (this.bg.isDoor(mx, my)) {
+            this.bg.toggleDoor(mx, my)
+            let d = this.bg.doors[mx + ',' + my]
+            if (window.audioManager) {
+                if (d.open) window.audioManager.playDoor()
+                else window.audioManager.playDoorClose()
+            }
+        }
+    }
+
+    // 碰撞检测：某格子是否可通过（空地 或 门已打开 > 0.9）
     cellIsEmpty(x, y) {
         let mx = Math.floor(x)
         let my = Math.floor(y)
         if (mx < 0 || my < 0 || mx >= this.columns || my >= this.lines) return false
-        return this.worldMap[my][mx] === 0
+        let cell = this.worldMap[my][mx]
+        if (cell === 0) return true
+        // 门且完全打开则可通过
+        if (this.bg.isDoorPassable(mx, my)) return true
+        return false
     }
 
     _collidesBlockingSprite(x, y) {
