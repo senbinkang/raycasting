@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport"
@@ -9,13 +9,11 @@
     <style>
         body {
             margin: 12px;
-            font-family: -apple-system, "Helvetica Neue", Arial, sans-serif;
+            font-family: -apple-system, "Helvetica Neue", "Microsoft YaHei", Arial, sans-serif;
             background: #1a1a1a;
             color: #ddd;
         }
-        h2 {
-            margin: 0 0 12px 0;
-        }
+        h2 { margin: 0 0 12px 0; }
         .wrap {
             display: flex;
             align-items: flex-start;
@@ -27,51 +25,60 @@
             border: 1px solid #444;
             display: block;
         }
-        .label {
-            font-size: 12px;
-            color: #888;
-            margin-bottom: 4px;
-        }
         .hint {
             margin-top: 12px;
             font-size: 13px;
-            color: #888;
-            line-height: 1.7;
+            color: #bbb;
+            line-height: 1.8;
+            background: #222;
+            border: 1px solid #333;
+            padding: 10px 16px;
+            border-radius: 4px;
+            max-width: 800px;
         }
         kbd {
-            background: #333;
+            background: #2e2e2e;
             border: 1px solid #555;
             border-radius: 3px;
             padding: 1px 6px;
-            font-family: inherit;
-            color: #ccc;
+            font-family: monospace;
+            color: #eee;
+            margin: 0 2px;
         }
     </style>
 </head>
 <body>
-    <h2>Raycasting — Wolfenstein 风格伪 3D 引擎</h2>
+    <h2>Raycasting — Wolfenstein 风格伪 3D 引擎（阶段 A~F 完成版）</h2>
     <div class="wrap">
         <div>
-            <div class="label">小地图（Top-down Map）</div>
             <canvas id="id-canvas" width="400" height="400"></canvas>
         </div>
         <div>
-            <div class="label">3D 视图（Raycasted View）</div>
             <canvas id="id-canvas-image" width="640" height="400"></canvas>
         </div>
     </div>
 
     <div class="hint">
-        <b>操作：</b>
-        <kbd>w</kbd> 前进　<kbd>s</kbd> 后退　<kbd>a</kbd> 左转　<kbd>d</kbd> 右转　<kbd>q</kbd>/<kbd>e</kbd> 左右平移
+        <b>操作：</b><br>
+        移动：<kbd>W</kbd> 前进　<kbd>S</kbd> 后退　<kbd>Q</kbd> 左平移　<kbd>E</kbd> 右平移<br>
+        旋转：<kbd>A</kbd> 左转　<kbd>D</kbd> 右转　｜　或 <kbd>点击画面</kbd> 启动鼠标视角（Esc 解除）<br>
+        加速跑：按住 <kbd>Shift</kbd> + W<br>
+        物品：走到 <span style="color:#ffd640">黄色方块</span>（医疗包）会自动拾取<br>
+        敌人：<span style="color:#ff5050">红色圆形</span>——会主动朝你移动（需视线畅通）<br>
+        <br>
+        <b>当前特性（阶段 A~F）：</b> 标准 DDA + 鱼眼校正　｜　程序化墙面纹理（红砖/蓝砖/石头/木头）　｜　地板/天花板纹理投射　｜　雾效　｜　方向光 + 手电筒　｜　精灵系统（敌人/物品，zBuffer 遮挡）　｜　小地图（墙体/玩家/精灵/朝向扇形）　｜　FPS HUD
     </div>
 
+    <!-- 按依赖顺序加载：utils → textures → 各模块 → 主入口 -->
     <script src="utils.js"></script>
-    <script src="game/Game.js"></script>
-    <script src="game/GameScene.js"></script>
+    <script src="textures.js"></script>
     <script src="Background.js"></script>
     <script src="Player.js"></script>
+    <script src="game/Game.js"></script>
+    <script src="game/Sprite.js"></script>
+    <script src="game/SpriteManager.js"></script>
     <script src="game/Screen.js"></script>
+    <script src="game/GameScene.js"></script>
 
     <script src="index.js"></script>
 </body>

@@ -1,8 +1,17 @@
+// Game.js
+// 负责：
+//   - 主循环 runLoop(now)：deltaTime 计算 + 驱动按键动作 + 触发绘制
+//   - 鼠标 Pointer Lock：点击 canvas 进入 FPS 视角；ESC 退出
+//   - HUD：右上角 FPS / 位置 / 朝向 提示；右下角操作提示
+//
+// 依赖注册方式：game.registerAction('w', (dt) => {...})
+// 每帧 runLoop 中会对所有已注册按键调用 action(dt)，由 Player 等模块填充。
+
 class Game {
     constructor() {
-        this.canvas = e('#id-canvas')
+        this.canvas = document.getElementById('id-canvas')
         this.context = this.canvas.getContext('2d')
-        this.canvasImage = e('#id-canvas-image')
+        this.canvasImage = document.getElementById('id-canvas-image')
         this.contextImage = this.canvasImage.getContext('2d')
 
         // 场景与事件
@@ -10,11 +19,20 @@ class Game {
         this.keysdown = {}
         this.actions = {}
 
-        // === deltaTime 相关：让移动速度与帧率无关 ===
+        // deltaTime
         this.lastTime = performance.now()
-        this.dt = 1 / 60   // 初始值，每一帧会更新
+        this.dt = 1 / 60
 
-        // 按键监听（全局 keydown/keyup）
+        // FPS 统计（给 HUD 用）
+        this._fpsFrames = 0
+        this._fpsTimer = 0
+        this.fps = 60
+
+        // === 阶段 C：鼠标 pointer lock ===
+        this.mouseDX = 0
+        this.mouseSensitivity = 0.0025   // rad / px
+        this.isPointerLocked = false
+
         window.addEventListener('keydown', (e) => {
             this.keysdown[e.key] = true
         })
@@ -22,44 +40,121 @@ class Game {
             this.keysdown[e.key] = false
         })
 
+        // 点击 canvas 启动 Pointer Lock
+        const tryLock = () => {
+            if (this.canvasImage.requestPointerLock) {
+                this.canvasImage.requestPointerLock()
+            } else if (this.canvas.requestPointerLock) {
+                this.canvas.requestPointerLock()
+            }
+        }
+        this.canvasImage.addEventListener('click', tryLock)
+        this.canvas.addEventListener('click', tryLock)
+
+        // Pointer lock 状态变化监听
+        const updateLockState = () => {
+            this.isPointerLocked = (document.pointerLockElement === this.canvasImage ||
+                                    document.pointerLockElement === this.canvas)
+        }
+        document.addEventListener('pointerlockchange', updateLockState)
+        document.addEventListener('mozpointerlockchange', updateLockState)
+        document.addEventListener('webkitpointerlockchange', updateLockState)
+
+        // 鼠标移动：累加至 mouseDX，每帧交给 player.rotate
+        const onMouseMove = (e) => {
+            if (!this.isPointerLocked) return
+            this.mouseDX += e.movementX || e.mozMovementX || e.webkitMovementX || 0
+        }
+        document.addEventListener('mousemove', onMouseMove)
+
         // 禁止右键菜单
         this.canvas.addEventListener('contextmenu', (e) => e.preventDefault())
+        this.canvasImage.addEventListener('contextmenu', (e) => e.preventDefault())
     }
 
     registerAction(key, callback) {
         this.actions[key] = callback
     }
 
-    // 每帧执行：把 dt 作为参数传给按键回调
     doAction() {
-        let actions = Object.keys(this.actions)
-        for (let key of actions) {
-            if (this.keysdown[key]) {
-                this.actions[key](this.dt)
-            }
+        let keys = Object.keys(this.actions)
+        for (let k of keys) {
+            if (this.keysdown[k]) this.actions[k](this.dt)
         }
     }
 
     update() {
-        // 当前场景没有 update 逻辑（update 在按键回调里已经执行）
-        // 但保留此函数便于后续扩展（如敌人 AI、子弹物理等）
+        // 每帧处理鼠标旋转（交给 player.rotate）
+        if (this.mouseDX !== 0 && this.scene && this.scene.player) {
+            this.scene.player.rotate(this.mouseDX * this.mouseSensitivity)
+            this.mouseDX = 0
+        }
+
+        // 加速跑状态（Shift）
+        if (this.scene && this.scene.player && typeof this.scene.player.setSprinting === 'function') {
+            this.scene.player.setSprinting(!!this.keysdown['Shift'])
+        }
+
+        // Scene 的 sprite 更新（AI / 碰撞）
+        if (this.scene && typeof this.scene.update === 'function') {
+            this.scene.update(this.dt)
+        }
     }
 
     clear() {
-        // 清左 Canvas（小地图），右 Canvas 由 Screen.drawBg 负责
         this.context.clearRect(0, 0, this.canvas.width, this.canvas.height)
     }
 
     draw() {
         if (this.scene) this.scene.draw()
+        this.drawHUD()
     }
 
-    // 每一帧：计算 deltaTime → 处理输入 → 更新 → 绘制 → 请求下一帧
+    // HUD：FPS / 位置 / 操作提示
+    drawHUD() {
+        let ctx = this.contextImage
+        let width = this.canvasImage.width
+
+        // 右上：FPS
+        ctx.fillStyle = 'rgba(0,0,0,0.5)'
+        ctx.fillRect(width - 110, 8, 102, 44)
+        ctx.fillStyle = 'rgb(200,255,200)'
+        ctx.font = '12px monospace'
+        ctx.textAlign = 'right'
+        ctx.fillText('FPS: ' + this.fps.toFixed(0), width - 14, 24)
+
+        if (this.scene && this.scene.player) {
+            let p = this.scene.player
+            ctx.fillText('Pos: ' + p.position.x.toFixed(1) + ', ' + p.position.y.toFixed(1), width - 14, 38)
+            ctx.fillText('Dir: ' + p.dirX.toFixed(2) + ', ' + p.dirY.toFixed(2), width - 14, 50)
+        }
+
+        // 左上：pointer lock 提示（仅在未锁定时显示）
+        if (!this.isPointerLocked) {
+            ctx.textAlign = 'left'
+            ctx.fillStyle = 'rgba(0,0,0,0.55)'
+            ctx.fillRect(8, 8, 240, 50)
+            ctx.fillStyle = 'rgb(255,220,120)'
+            ctx.font = '13px monospace'
+            ctx.fillText('[点击画面] 启动鼠标视角', 14, 26)
+            ctx.fillText('WASD 移动  A/D 旋转  Shift 加速', 14, 46)
+        }
+
+        ctx.textAlign = 'left'
+    }
+
     runLoop(now) {
-        // deltaTime = 与上一帧的间隔（秒）
-        // clamp 到 0.05 秒：防止切到其他标签后再切回来产生瞬移
         this.dt = Math.min((now - this.lastTime) / 1000, 0.05)
         this.lastTime = now
+
+        // FPS 统计（每 0.5s 更新一次）
+        this._fpsFrames++
+        this._fpsTimer += this.dt
+        if (this._fpsTimer >= 0.5) {
+            this.fps = this._fpsFrames / this._fpsTimer
+            this._fpsFrames = 0
+            this._fpsTimer = 0
+        }
 
         this.doAction()
         this.update()

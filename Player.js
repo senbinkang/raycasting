@@ -1,40 +1,77 @@
+// Player.js
+// 玩家控制 + 分轴碰撞（墙 + 精灵阻挡精灵）+ 精灵捡取
+//
+// 使用: new Player(game, bg, spriteManager)
+//   - spriteManager 可省略（若当前阶段不需要）
+//
+// 按键：
+//   W/S = 前/后移动   A/D = 左/右旋转
+//   Q/E = 左右平移（strafe）
+//   Shift = 加速跑（game.update() 中调用 setSprinting）
+
 class Player {
-    constructor(game, bg) {
+    constructor(game, bg, spriteManager) {
         this.game = game
         this.bg = bg
+        this.spriteManager = spriteManager || null
         this.unit = bg.unit
         this.lines = bg.lines
         this.columns = bg.columns
         this.worldMap = bg.worldMap
 
-        // 玩家格坐标（初始位置：地图中上区域的空地，朝右）
-        this.position = new Vec(1.5, 4.5)
+        // 初始位置：第一行 / 第一列 的空地中心
+        this.position = new Vec(1.5, 1.5)
+        // 先在地图里找最近的空地（防止被墙堵）
+        this._findStartPosition()
 
-        // 玩家像素半径（在小地图上画圆用）
-        this.r = 10
+        // 玩家格坐标（作为备份，位置 = position）
+        this.r = 10   // 小地图上绘制半径
 
-        // === 朝向系统：用向量替代角度 ===
-        // dir = 玩家朝向单位向量（长度 1）
-        // plane = 相机平面向量（⊥ dir，长度决定 FOV）
-        // 初始朝 X 轴正方向（向右），FOV ≈ 2 * atan(0.66) ≈ 66°
+        // 初始朝向：朝 +X 方向（向右）
         this.dirX = 1.0
         this.dirY = 0.0
+
+        // 摄像机平面向量：垂直于 dir，长度决定 FOV
+        // 这里 FOV ≈ 2 * atan(0.66) ≈ 66°
         this.planeX = 0.0
         this.planeY = 0.66
 
-        // === 速度（单位：格/秒，弧度/秒），帧内会乘以 deltaTime ===
-        this.moveSpeed = 2.5    // 格/秒
-        this.rotSpeed = 1.2     // 弧度/秒 ≈ 69°/秒
+        // 速度（格 / 秒）
+        this.moveSpeedBase = 2.5
+        this.moveSpeedSprint = 4.5
+        this.moveSpeed = this.moveSpeedBase
+        this.rotSpeed = 1.5     // 键盘旋转速度（rad / s）
 
-        // 显示颜色
-        this.rayColor = new Color(255, 255, 255, 0.4)
-        this.dirArrowColor = new Color(255, 200, 0, 1.0)
+        // 碰撞半径（与墙/阻挡精灵的最小距离）
+        this.collisionRadius = 0.2
+
+        // 颜色
         this.playerColor = new Color(88, 221, 253)
+        this.dirArrowColor = new Color(255, 200, 0)
+        this.rayColor = new Color(255, 255, 255, 0.4)
 
         this.init()
     }
 
-    // === Screen.js 读取的快捷 getter ===
+    _findStartPosition() {
+        // 从 (1.5, 1.5) 出发，找最近的空地
+        const candidates = [
+            [1.5, 1.5], [2.5, 1.5], [1.5, 2.5],
+            [2.5, 2.5], [3.5, 1.5], [1.5, 3.5]
+        ]
+        for (let [x, y] of candidates) {
+                let mx = Math.floor(x)
+                let my = Math.floor(y)
+                if (mx >= 0 && my >= 0 && mx < this.columns && my < this.lines) {
+                    if (this.worldMap[my][mx] === 0) {
+                        this.position = new Vec(x, y)
+                        return
+                    }
+                }
+            }
+        }
+
+    // Screen.js 读取的便捷 getter
     get posX() { return this.position.x }
     get posY() { return this.position.y }
 
@@ -42,11 +79,14 @@ class Player {
         this.registerAction()
     }
 
-    // 按键回调：每个回调接收 dt（秒），用于帧率无关的移动
+    setSprinting(on) {
+        this.moveSpeed = on ? this.moveSpeedSprint : this.moveSpeedBase
+    }
+
     registerAction() {
         let g = this.game
 
-        // 旋转（绕玩家 Z 轴）
+        // 键盘旋转（A/D）
         g.registerAction('a', (dt) => this.rotate(-this.rotSpeed * dt))
         g.registerAction('d', (dt) => this.rotate(+this.rotSpeed * dt))
 
@@ -54,74 +94,94 @@ class Player {
         g.registerAction('w', (dt) => this.tryMove(this.dirX, this.dirY, this.moveSpeed * dt))
         g.registerAction('s', (dt) => this.tryMove(-this.dirX, -this.dirY, this.moveSpeed * dt))
 
-        // 左右平移（strafing，沿相机平面方向）
+        // 左右平移（strafe）：沿 -plane 方向平移，垂直于朝向向量 dir
         g.registerAction('q', (dt) => this.tryMove(-this.planeX, -this.planeY, this.moveSpeed * dt))
         g.registerAction('e', (dt) => this.tryMove(this.planeX, this.planeY, this.moveSpeed * dt))
+
+        // 方向键兼容（可选的）
+        g.registerAction('ArrowUp', (dt) => this.tryMove(this.dirX, this.dirY, this.moveSpeed * dt))
+        g.registerAction('ArrowDown', (dt) => this.tryMove(-this.dirX, -this.dirY, this.moveSpeed * dt))
+        g.registerAction('ArrowLeft', (dt) => this.rotate(-this.rotSpeed * dt))
+        g.registerAction('ArrowRight', (dt) => this.rotate(+this.rotSpeed * dt))
     }
 
-    // 二维旋转矩阵：同时旋转 dir 和 plane
+    // 旋转（2D 旋转矩阵：同时旋转方向向量 & 平面向量
     rotate(theta) {
-        let cos = Math.cos(theta)
-        let sin = Math.sin(theta)
+        const cos = Math.cos(theta)
+        const sin = Math.sin(theta)
 
-        let oldDirX = this.dirX
+        const oldDirX = this.dirX
         this.dirX = this.dirX * cos - this.dirY * sin
         this.dirY = oldDirX * sin + this.dirY * cos
 
-        let oldPlaneX = this.planeX
+        const oldPlaneX = this.planeX
         this.planeX = this.planeX * cos - this.planeY * sin
         this.planeY = oldPlaneX * sin + this.planeY * cos
     }
 
-    // 分轴碰撞：先尝试 X 方向，再尝试 Y 方向。撞到墙就不移动那一个轴。
-    // 这样贴墙走也能滑行。
+    // ====== 移动：分轴碰撞检测（先尝试 X 轴，再尝试 Y 轴）
     tryMove(dx, dy, step) {
-        // 归一化方向向量（plane 不是单位向量，需要归一化）
+        // 归一化方向
         let len = Math.sqrt(dx * dx + dy * dy)
         if (len < 0.0001) return
-        dx /= len
-        dy /= len
+        dx = dx / len
+        dy = dy / len
 
-        // 碰撞半径（以格为单位），值越大越不容易卡进墙角，但贴墙的距离越远
-        let r = 0.2
+        let r = this.collisionRadius
 
-        // === 尝试 X 方向移动 ===
+        // === X 轴方向
         let newX = this.position.x + dx * step
-        // 检查四角：newX ± r 与 position.y ± r
-        let checkX1 = newX + Math.sign(dx) * r
-        let checkX2 = newX + (dx > 0 ? r : -r)
-        let y1 = this.position.y - r * 0.5
-        let y2 = this.position.y + r * 0.5
-        if (this.cellIsEmpty(checkX1, y1) &&
-            this.cellIsEmpty(checkX1, y2) &&
-            this.cellIsEmpty(checkX2, y1) &&
-            this.cellIsEmpty(checkX2, y2)) {
+        let checkX = newX + Math.sign(dx) * r
+        if (this.cellIsEmpty(checkX, this.position.y) &&
+            !this._collidesBlockingSprite(newX, this.position.y)) {
             this.position.x = newX
         }
 
-        // === 尝试 Y 方向移动 ===
+        // === Y 轴方向
         let newY = this.position.y + dy * step
-        let checkY1 = newY + Math.sign(dy) * r
-        let checkY2 = newY + (dy > 0 ? r : -r)
-        let x1 = this.position.x - r * 0.5
-        let x2 = this.position.x + r * 0.5
-        if (this.cellIsEmpty(x1, checkY1) &&
-            this.cellIsEmpty(x2, checkY1) &&
-            this.cellIsEmpty(x1, checkY2) &&
-            this.cellIsEmpty(x2, checkY2)) {
+        let checkY = newY + Math.sign(dy) * r
+        if (this.cellIsEmpty(this.position.x, checkY) &&
+            !this._collidesBlockingSprite(this.position.x, newY)) {
             this.position.y = newY
         }
     }
 
-    // 判断某个格坐标 (gx, gy) 是否为空地（不在地图里也视为墙）
-    cellIsEmpty(gx, gy) {
-        let mx = Math.floor(gx)
-        let my = Math.floor(gy)
+    cellIsEmpty(x, y) {
+        let mx = Math.floor(x)
+        let my = Math.floor(y)
         if (mx < 0 || my < 0 || mx >= this.columns || my >= this.lines) return false
         return this.worldMap[my][mx] === 0
     }
 
-    // ========== 绘制（仅在小地图上） ==========
+    _collidesBlockingSprite(x, y) {
+        if (!this.spriteManager || !this.spriteManager.sprites || this.spriteManager.sprites.length === 0) return false
+        for (let s of this.spriteManager.sprites) {
+            if (!s.alive) continue
+            if (!s.isBlocking) continue   // 只有阻挡型精灵才拦路（物品不阻挡）
+            let dx = x - s.x
+            let dy = y - s.y
+            let minDist = this.collisionRadius + (s.radius || 0.2)
+            if (dx * dx + dy * dy < minDist * minDist) return true
+        }
+        return false
+    }
+
+    // 捡取物品（每次更新：检测玩家与物品精灵的碰撞
+    pickupItems() {
+        if (!this.spriteManager) return
+        for (let s of this.spriteManager.sprites) {
+            if (!s.alive || s.type !== 'item') continue
+            let dx = this.position.x - s.x
+            let dy = this.position.y - s.y
+            let pickRadius = 0.5
+            if (dx * dx + dy * dy < pickRadius * pickRadius) {
+                s.alive = false
+                // 这里可以播放音效等（后续阶段 GL 再实现）
+            }
+        }
+    }
+
+    // ========== 绘制（小地图） ==========
 
     draw() {
         this.drawPlayer()
@@ -135,37 +195,34 @@ class Player {
         drawArc(this.game.context, this.playerColor, px, py, this.r)
     }
 
-    // 画：朝向黄色短箭头 + FOV 两条白色边界线（表示视野范围）
     drawDirArrow() {
         let unit = this.unit
         let startX = this.position.x * unit
         let startY = this.position.y * unit
+        let ctx = this.game.context
 
-        // 朝向箭头（沿 dir 方向，1.5 格长）
-        let endX = startX + this.dirX * unit * 1.5
-        let endY = startY + this.dirY * unit * 1.5
-        drawLine(this.game.context, this.dirArrowColor, startX, startY, endX, endY)
+        // 黄色朝向箭头
+        drawLine(ctx, this.dirArrowColor, startX, startY,
+            startX + this.dirX * unit * 1.5,
+            startY + this.dirY * unit * 1.5)
 
-        // FOV 左边界（dir - plane 方向，归一化）
+        // FOV 扇形边界（虚线样式）
         let leftX = this.dirX - this.planeX
         let leftY = this.dirY - this.planeY
         let leftLen = Math.sqrt(leftX * leftX + leftY * leftY)
         leftX /= leftLen
         leftY /= leftLen
-        drawLine(this.game.context, this.rayColor,
-            startX, startY,
-            startX + leftX * unit * 3,
-            startY + leftY * unit * 3)
+        drawLine(ctx, this.rayColor, startX, startY,
+            startX + leftX * unit * 2.5,
+            startY + leftY * unit * 2.5)
 
-        // FOV 右边界（dir + plane 方向）
         let rightX = this.dirX + this.planeX
         let rightY = this.dirY + this.planeY
         let rightLen = Math.sqrt(rightX * rightX + rightY * rightY)
         rightX /= rightLen
         rightY /= rightLen
-        drawLine(this.game.context, this.rayColor,
-            startX, startY,
-            startX + rightX * unit * 3,
-            startY + rightY * unit * 3)
+        drawLine(ctx, this.rayColor, startX, startY,
+            startX + rightX * unit * 2.5,
+            startY + rightY * unit * 2.5)
     }
 }
