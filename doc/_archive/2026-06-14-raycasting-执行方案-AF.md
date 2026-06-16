@@ -1,8 +1,8 @@
-# Raycasting 光线投射引擎 — 未完成项执行方案（A ~ F）
+# Raycasting 光线投射引擎 — 执行方案（A ~ F）
 
-> 位置：`doc/_workflow/会话计划/2026-06-14-raycasting-未完成项-AF.md`
-> 对应总清单：`doc/_workflow/todoList.md` 中 3.1 ~ 4.1（墙面纹理 → 光照增强）
-> 上游文档：`doc/raycasting_改进建议.md`
+> 状态：**全部已完成 ✅**（2026-06-14）
+> 位置：`doc/_archive/2026-06-14-raycasting-执行方案-AF.md`
+> 上游文档：`doc/_archive/2026-06-14-raycasting改进建议.md`
 > 前置已完成：阶段一~六（DDA + 鱼眼 + 二维地图 + rAF + 分轴碰撞 + 画布样式）
 
 ---

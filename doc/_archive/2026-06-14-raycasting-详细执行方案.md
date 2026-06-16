@@ -1,8 +1,8 @@
 # Raycasting 光线投射引擎 — 详细执行方案
 
-> 位置：`/Users/kangsenbin/Downloads/games/raycasting/doc/_workflow/会话计划/2026-06-14-raycasting-详细执行方案.md`
-> 上游文档：`doc/raycasting_改进建议.md`
-> 当前代码状态：原始实现（未重构）
+> 状态：**全部已完成 ✅**（2026-06-14）
+> 位置：`doc/_archive/2026-06-14-raycasting-详细执行方案.md`
+> 上游文档：`doc/_archive/2026-06-14-raycasting改进建议.md`
 
 ---
 

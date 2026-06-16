@@ -1,7 +1,7 @@
-# Raycasting 光线投射引擎 — 未完成项执行方案（G ~ L）
+# Raycasting 光线投射引擎 — 执行方案（G ~ L）
 
-> 位置：`doc/_workflow/会话计划/2026-06-14-raycasting-未完成项-GL.md`
-> 对应总清单：`doc/_workflow/todoList.md` 中 4.2 ~ 4.7（开门/音效/武器/多种墙高/天气/地图编辑器）
+> 状态：**G/H/I 已完成 ✅，J/K/L 未开始 ⏳**（2026-06-14）
+> 位置：`doc/_archive/2026-06-14-raycasting-执行方案-GL.md`
 > 前置：阶段 A ~ F 已完成（墙面纹理 + 地板纹理 + 鼠标 + Sprite + 小地图 + 光照雾效）
 
 ---
