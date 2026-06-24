@@ -53,8 +53,9 @@
         <div>
             <canvas id="id-canvas" width="400" height="400"></canvas>
         </div>
-        <div>
+        <div style="position:relative">
             <canvas id="id-canvas-image" width="640" height="400"></canvas>
+            <canvas id="id-canvas-overlay" width="640" height="400" style="position:absolute;left:0;top:0;pointer-events:none"></canvas>
         </div>
     </div>
 
@@ -83,6 +84,7 @@
     <script src="game/AudioManager.js"></script>
     <script src="game/Weapon.js"></script>
     <script src="game/Game.js"></script>
+    <script src="game/OverlayScreen.js"></script>
     <script src="game/GameScene.js"></script>
 
     <script src="index.js"></script>

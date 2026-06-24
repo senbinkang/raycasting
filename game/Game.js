@@ -35,10 +35,31 @@ class Game {
 
         window.addEventListener('keydown', (e) => {
             this.keysdown[e.key] = true
+            if ((e.key === 'Enter' || e.key === ' ') && this.scene) {
+                if (this.scene.state === 'menu') {
+                    this.scene.startGame()
+                } else if (this.scene.state === 'gameover' || this.scene.state === 'win') {
+                    this.scene.reset()
+                }
+            }
         })
         window.addEventListener('keyup', (e) => {
             this.keysdown[e.key] = false
         })
+
+        // overlay canvas 点击触发状态切换
+        const overlayCanvas = document.getElementById('id-canvas-overlay')
+        if (overlayCanvas) {
+            overlayCanvas.addEventListener('click', () => {
+                if (this.scene) {
+                    if (this.scene.state === 'menu') {
+                        this.scene.startGame()
+                    } else if (this.scene.state === 'gameover' || this.scene.state === 'win') {
+                        this.scene.reset()
+                    }
+                }
+            })
+        }
 
         // 点击 canvas 启动 Pointer Lock
         const tryLock = () => {
@@ -106,29 +127,34 @@ class Game {
     }
 
     update() {
-        // 每帧处理鼠标旋转（交给 player.rotate）
-        if (this.mouseDX !== 0 && this.scene && this.scene.player) {
+        if (!this.scene) return
+
+        if (this.scene.state !== 'playing') {
+            this.mouseDX = 0
+            if (typeof this.scene.update === 'function') this.scene.update(this.dt)
+            return
+        }
+
+        if (this.mouseDX !== 0 && this.scene.player) {
             this.scene.player.rotate(this.mouseDX * this.mouseSensitivity)
             this.mouseDX = 0
         }
 
-        // 加速跑状态（Shift）
-        if (this.scene && this.scene.player && typeof this.scene.player.setSprinting === 'function') {
+        if (this.scene.player && typeof this.scene.player.setSprinting === 'function') {
             this.scene.player.setSprinting(!!this.keysdown['Shift'])
         }
 
-        // Scene 的 sprite 更新（AI / 碰撞）
-        if (this.scene && typeof this.scene.update === 'function') {
+        if (typeof this.scene.update === 'function') {
             this.scene.update(this.dt)
         }
 
-        // 左键按住射击
-        if (this.scene && this.scene.weapon && this.scene.weapon.triggerDown) {
+        if (this.scene.weapon && this.scene.weapon.triggerDown) {
             let enemy = this.scene.weapon.fire()
             if (enemy) {
                 let dead = enemy.takeDamage(35)
                 if (dead) {
                     if (window.audioManager) window.audioManager.playEnemyDeath()
+                    this.scene.addScore(100)
                 } else {
                     if (window.audioManager) window.audioManager.playHit()
                 }
@@ -138,15 +164,19 @@ class Game {
 
     clear() {
         this.context.clearRect(0, 0, this.canvas.width, this.canvas.height)
+        if (this.scene && this.scene.state !== 'playing') {
+            this.contextImage.clearRect(0, 0, this.canvasImage.width, this.canvasImage.height)
+        }
     }
 
     draw() {
         if (this.scene) this.scene.draw()
-        // 武器在最上层绘制（覆盖一切）
-        if (this.scene && this.scene.weapon) {
-            this.scene.weapon.draw(this.contextImage, this.canvasImage.width, this.canvasImage.height)
+        if (this.scene && this.scene.state === 'playing') {
+            if (this.scene.weapon) {
+                this.scene.weapon.draw(this.contextImage, this.canvasImage.width, this.canvasImage.height)
+            }
+            this.drawHUD()
         }
-        this.drawHUD()
     }
 
     // HUD：FPS / 位置 / 操作提示
@@ -168,6 +198,11 @@ class Game {
             ctx.fillText('Dir: ' + p.dirX.toFixed(2) + ', ' + p.dirY.toFixed(2), width - 14, 50)
         }
 
+        // 右上：分数
+        ctx.fillStyle = 'rgb(255,220,80)'
+        ctx.font = 'bold 14px monospace'
+        ctx.fillText('SCORE: ' + (this.scene ? this.scene.score : 0), width - 14, 66)
+
         // 左上：pointer lock 提示（仅在未锁定时显示）
         if (!this.isPointerLocked) {
             ctx.textAlign = 'left'
@@ -177,6 +212,24 @@ class Game {
             ctx.font = '13px monospace'
             ctx.fillText('[点击画面] 启动鼠标视角', 14, 26)
             ctx.fillText('WASD 移动  A/D 旋转  Shift 加速', 14, 46)
+        }
+
+        // 左下：血条
+        if (this.scene && this.scene.player) {
+            let p = this.scene.player
+            let barX = 10, barY = this.canvasImage.height - 30, barW = 200, barH = 18
+            ctx.fillStyle = 'rgba(0,0,0,0.6)'
+            ctx.fillRect(barX - 2, barY - 2, barW + 4, barH + 4)
+            ctx.fillStyle = 'rgba(60,10,10,0.9)'
+            ctx.fillRect(barX, barY, barW, barH)
+            let hpRatio = Math.max(0, p.hp / p.maxHp)
+            let fillColor = hpRatio > 0.5 ? 'rgb(50,200,50)' : 'rgb(230,40,40)'
+            ctx.fillStyle = fillColor
+            ctx.fillRect(barX + 1, barY + 1, (barW - 2) * hpRatio, barH - 2)
+            ctx.fillStyle = 'rgb(255,255,255)'
+            ctx.font = 'bold 13px monospace'
+            ctx.textAlign = 'center'
+            ctx.fillText('HP: ' + Math.ceil(p.hp) + '/' + p.maxHp, barX + barW / 2, barY + barH - 4)
         }
 
         ctx.textAlign = 'left'

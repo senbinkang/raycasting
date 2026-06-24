@@ -15,11 +15,28 @@ class SpriteManager {
 
     add(sprite) { this.sprites.push(sprite) }
 
-    // 每帧调用：驱动精灵 AI
+    // 每帧调用：驱动精灵 AI + 分离力 + 捡取
     update(dt, player, bg) {
         for (let s of this.sprites) s.update(dt, player, bg)
 
-        // 玩家捡取物品（统一在 SpriteManager 处理，Player 无需关心内部结构）
+        // 敌人间分离力，防止重叠
+        let enemies = this.sprites.filter(s => s.alive && s.type === 'enemy')
+        for (let i = 0; i < enemies.length; i++) {
+            for (let j = i + 1; j < enemies.length; j++) {
+                let dx = enemies[j].x - enemies[i].x
+                let dy = enemies[j].y - enemies[i].y
+                let dist = Math.sqrt(dx * dx + dy * dy)
+                if (dist < 0.6 && dist > 0.001) {
+                    let push = (0.6 - dist) / 2
+                    let nx = dx / dist, ny = dy / dist
+                    enemies[i].x -= nx * push
+                    enemies[i].y -= ny * push
+                    enemies[j].x += nx * push
+                    enemies[j].y += ny * push
+                }
+            }
+        }
+
         if (player && typeof player.pickupItems === 'function') {
             player.pickupItems()
         }

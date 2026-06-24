@@ -333,6 +333,10 @@ class Screen {
                 if (drawEnd > height) drawEnd = height
             }
 
+            // 消除列间缝隙
+            if (drawStart > 0) drawStart--
+            if (drawEnd < height) drawEnd++
+
             let wallX = (side === 0) ? posY + perpDist * rayDirY : posX + perpDist * rayDirX
             wallX -= Math.floor(wallX)
 

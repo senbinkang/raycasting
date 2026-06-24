@@ -32,79 +32,48 @@ class Weapon {
         }
     }
 
-    // 射击：沿玩家视线方向做 DDA 检测，返回命中的第一个敌人 Sprite
+    // 射击：屏幕空间命中检测 + 准星范围判定
     fire() {
         if (this.cooldown > 0) return null
 
         const player = this.player
-        const bg = this.bg
-        const worldMap = bg.worldMap
+        const width = 640
+        const maxRange = 10
 
-        // 射线方向
-        const rayDirX = player.dirX
-        const rayDirY = player.dirY
+        if (window.audioManager) window.audioManager.playShoot()
+        this.recoil = 1
+        this.cooldown = this.cooldownTime
 
-        let mapX = Math.floor(player.position.x)
-        let mapY = Math.floor(player.position.y)
+        if (!this.spriteManager) return null
 
-        let deltaDistX = Math.abs(1 / rayDirX)
-        let deltaDistY = Math.abs(1 / rayDirY)
+        let bestHit = null
+        let bestDist = Infinity
 
-        let sideDistX, sideDistY, stepX, stepY
-        if (rayDirX < 0) { stepX = -1; sideDistX = (player.position.x - mapX) * deltaDistX }
-        else { stepX = 1; sideDistX = (mapX + 1 - player.position.x) * deltaDistX }
-        if (rayDirY < 0) { stepY = -1; sideDistY = (player.position.y - mapY) * deltaDistY }
-        else { stepY = 1; sideDistY = (mapY + 1 - player.position.y) * deltaDistY }
+        for (let s of this.spriteManager.sprites) {
+            if (!s.alive || s.type !== 'enemy') continue
 
-        let hit = 0, safety = 0
-        while (hit === 0 && safety < 200) {
-            if (sideDistX < sideDistY) { sideDistX += deltaDistX; mapX += stepX }
-            else { sideDistY += deltaDistY; mapY += stepY }
-            if (mapX < 0 || mapY < 0 || mapX >= bg.columns || mapY >= bg.lines) break
-            let cell = worldMap[mapY][mapX]
-            // 射线击中墙或完全打开的门（>= 101 门格，且完全打开 > 0.9）则停止
-            if (cell > 0) {
-                if (cell >= 101 && cell <= 199) {
-                    let door = bg.doors[mapX + ',' + mapY]
-                    if (!door || door.openProgress < 0.9) hit = 1
-                } else {
-                    hit = 1
-                }
-            }
-            safety++
-        }
+            let spriteX = s.x - player.position.x
+            let spriteY = s.y - player.position.y
 
-        // 命中墙或门，无敌人命中
-        if (hit === 1) return null
+            let invDet = 1.0 / (player.planeX * player.dirY - player.dirX * player.planeY)
+            let transformX = invDet * (player.dirY * spriteX - player.dirX * spriteY)
+            let transformY = invDet * (-player.planeY * spriteX + player.planeX * spriteY)
 
-        // 检查是否命中精灵（敌人）
-        if (this.spriteManager) {
-            let entries = this.spriteManager.sprites.filter(s => s.alive && s.type === 'enemy')
-            // 按距离由近到远排序
-            entries.sort((a, b) => {
-                let da = (a.x - player.position.x) ** 2 + (a.y - player.position.y) ** 2
-                let db = (b.x - player.position.x) ** 2 + (b.y - player.position.y) ** 2
-                return da - db
-            })
+            if (transformY <= 0.05) continue
+            if (transformY > maxRange) continue
 
-            for (let s of entries) {
-                let sx = s.x - player.position.x
-                let sy = s.y - player.position.y
-                let invDet = 1 / (player.planeX * player.dirY - player.dirX * player.planeY)
-                let tx = invDet * (player.dirY * sx - player.dirX * sy)
-                let ty = invDet * (-player.planeY * sx + player.planeX * sy)
-                if (ty <= 0) continue
-                let spriteW = bg.columns / ty
-                let spriteH = bg.lines / ty
-                let screenX = (bg.columns / 2) * (1 + tx / ty)
-                if (Math.abs(spriteW) < 0.01) continue
-                let hitRange = spriteW * 0.3
-                if (Math.abs(tx - ty * (screenX - player.position.x) / player.dirX) < hitRange) {
-                    return s
-                }
+            let spriteScreenX = Math.floor((width / 2) * (1 + transformX / transformY))
+            let spriteWidth = Math.abs(Math.floor(width / transformY))
+
+            let hitRange = Math.max(spriteWidth * 0.35, 8)
+            let centerX = width / 2
+            if (Math.abs(spriteScreenX - centerX) < hitRange && transformY < bestDist) {
+                bestDist = transformY
+                bestHit = s
             }
         }
-        return null
+
+        return bestHit
     }
 
     // 在游戏 Canvas 最上层绘制手枪

@@ -35,6 +35,7 @@ class TextureManager {
         let c = document.createElement('canvas')
         c.width = this.size
         c.height = this.size
+        c.getContext('2d', { willReadFrequently: true })
         return c
     }
 
@@ -234,6 +235,73 @@ class TextureManager {
         return c
     }
 
+    generateFastEnemy() {
+        let size = this.size
+        let c = this._newCanvas()
+        let ctx = c.getContext('2d')
+        ctx.clearRect(0, 0, size, size)
+        ctx.fillStyle = 'rgb(230, 140, 40)'
+        ctx.beginPath()
+        ctx.moveTo(size * 0.5, size * 0.15)
+        ctx.lineTo(size * 0.85, size * 0.8)
+        ctx.lineTo(size * 0.15, size * 0.8)
+        ctx.fill()
+        ctx.fillStyle = 'rgb(255,255,255)'
+        ctx.beginPath(); ctx.arc(size * 0.4, size * 0.5, size * 0.07, 0, Math.PI * 2); ctx.fill()
+        ctx.beginPath(); ctx.arc(size * 0.6, size * 0.5, size * 0.07, 0, Math.PI * 2); ctx.fill()
+        ctx.fillStyle = 'rgb(0,0,0)'
+        ctx.beginPath(); ctx.arc(size * 0.4, size * 0.5, size * 0.035, 0, Math.PI * 2); ctx.fill()
+        ctx.beginPath(); ctx.arc(size * 0.6, size * 0.5, size * 0.035, 0, Math.PI * 2); ctx.fill()
+        ctx.strokeStyle = 'rgb(0,0,0)'; ctx.lineWidth = 2
+        ctx.beginPath(); ctx.moveTo(size * 0.32, size * 0.68); ctx.lineTo(size * 0.5, size * 0.58); ctx.lineTo(size * 0.68, size * 0.68); ctx.stroke()
+        this._addNoise(c, 10)
+        return c
+    }
+
+    generateTankEnemy() {
+        let size = this.size
+        let c = this._newCanvas()
+        let ctx = c.getContext('2d')
+        ctx.clearRect(0, 0, size, size)
+        ctx.fillStyle = 'rgb(140, 50, 200)'
+        ctx.fillRect(size * 0.15, size * 0.15, size * 0.7, size * 0.7)
+        ctx.fillStyle = 'rgb(100,30,150)'
+        ctx.fillRect(size * 0.15, size * 0.5, size * 0.7, size * 0.35)
+        ctx.fillStyle = 'rgb(255,255,255)'
+        ctx.beginPath(); ctx.arc(size * 0.35, size * 0.38, size * 0.08, 0, Math.PI * 2); ctx.fill()
+        ctx.beginPath(); ctx.arc(size * 0.65, size * 0.38, size * 0.08, 0, Math.PI * 2); ctx.fill()
+        ctx.fillStyle = 'rgb(0,0,0)'
+        ctx.beginPath(); ctx.arc(size * 0.35, size * 0.38, size * 0.04, 0, Math.PI * 2); ctx.fill()
+        ctx.beginPath(); ctx.arc(size * 0.65, size * 0.38, size * 0.04, 0, Math.PI * 2); ctx.fill()
+        ctx.fillStyle = 'rgb(0,0,0)'
+        ctx.fillRect(size * 0.35, size * 0.6, size * 0.3, size * 0.08)
+        this._addNoise(c, 10)
+        return c
+    }
+
+    generateGhostEnemy() {
+        let size = this.size
+        let c = this._newCanvas()
+        let ctx = c.getContext('2d')
+        ctx.clearRect(0, 0, size, size)
+        ctx.fillStyle = 'rgb(50, 200, 200)'
+        ctx.beginPath()
+        ctx.ellipse(size / 2, size / 2, size * 0.35, size * 0.42, 0, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = 'rgba(20,120,120,0.5)'
+        ctx.beginPath()
+        ctx.ellipse(size / 2, size * 0.6, size * 0.35, size * 0.3, 0, 0, Math.PI)
+        ctx.fill()
+        ctx.fillStyle = 'rgb(255,255,255)'
+        ctx.beginPath(); ctx.arc(size * 0.38, size * 0.4, size * 0.06, 0, Math.PI * 2); ctx.fill()
+        ctx.beginPath(); ctx.arc(size * 0.62, size * 0.4, size * 0.06, 0, Math.PI * 2); ctx.fill()
+        ctx.fillStyle = 'rgb(0,0,0)'
+        ctx.beginPath(); ctx.arc(size * 0.38, size * 0.4, size * 0.03, 0, Math.PI * 2); ctx.fill()
+        ctx.beginPath(); ctx.arc(size * 0.62, size * 0.4, size * 0.03, 0, Math.PI * 2); ctx.fill()
+        this._addNoise(c, 10)
+        return c
+    }
+
     generateItem() {
         let size = this.size
         let c = this._newCanvas()
@@ -269,9 +337,13 @@ class TextureManager {
         this.textures[10] = this.generateFloorChecker()
         this.textures[11] = this.generateCeil()
 
-        // 201 = 敌人，202 = 物品
+        // 201 = 敌人（普通红），202 = 物品
         this.textures[201] = this.generateEnemy()
         this.textures[202] = this.generateItem()
+        // 203 = 快速敌人（橙），204 = 坦克敌人（紫），205 = 幽灵敌人（青）
+        this.textures[203] = this.generateFastEnemy()
+        this.textures[204] = this.generateTankEnemy()
+        this.textures[205] = this.generateGhostEnemy()
     }
 
     // ===== 读取接口 =====

@@ -19,22 +19,22 @@ class Player {
         this.columns = bg.columns
         this.worldMap = bg.worldMap
 
-        // 初始位置：第一行 / 第一列 的空地中心
-        this.position = new Vec(1.5, 1.5)
-        // 先在地图里找最近的空地（防止被墙堵）
+        // 初始位置：地图中央
+        let startX = Math.floor(this.columns / 2) + 0.5
+        let startY = Math.floor(this.lines / 2) + 0.5
+        this.position = new Vec(startX, startY)
         this._findStartPosition()
 
         // 玩家格坐标（作为备份，位置 = position）
         this.r = 10   // 小地图上绘制半径
 
-        // 初始朝向：朝 +X 方向（向右）
-        this.dirX = 1.0
-        this.dirY = 0.0
+        // 初始朝向：朝上（-Y）
+        this.dirX = 0.0
+        this.dirY = -1.0
 
         // 摄像机平面向量：垂直于 dir，长度决定 FOV
-        // 这里 FOV ≈ 2 * atan(0.66) ≈ 66°
-        this.planeX = 0.0
-        this.planeY = 0.66
+        this.planeX = 0.66
+        this.planeY = 0.0
 
         // 速度（格 / 秒）
         this.moveSpeedBase = 2.5
@@ -43,11 +43,12 @@ class Player {
         this.rotSpeed = 1.5     // 键盘旋转速度（rad / s）
 
         // 碰撞半径（与墙/阻挡精灵的最小距离）
-        this.collisionRadius = 0.2
+        this.collisionRadius = 0.4
 
         // HP
         this.hp = 100
         this.maxHp = 100
+        this.invincibleTimer = 0
 
         // 颜色
         this.playerColor = new Color(88, 221, 253)
@@ -58,22 +59,23 @@ class Player {
     }
 
     _findStartPosition() {
-        // 从 (1.5, 1.5) 出发，找最近的空地
-        const candidates = [
-            [1.5, 1.5], [2.5, 1.5], [1.5, 2.5],
-            [2.5, 2.5], [3.5, 1.5], [1.5, 3.5]
-        ]
-        for (let [x, y] of candidates) {
-                let mx = Math.floor(x)
-                let my = Math.floor(y)
-                if (mx >= 0 && my >= 0 && mx < this.columns && my < this.lines) {
-                    if (this.worldMap[my][mx] === 0) {
-                        this.position = new Vec(x, y)
-                        return
+        let cx = Math.floor(this.columns / 2)
+        let cy = Math.floor(this.lines / 2)
+        if (this.worldMap[cy] && this.worldMap[cy][cx] === 0) return
+        for (let r = 1; r < Math.max(this.columns, this.lines); r++) {
+            for (let dx = -r; dx <= r; dx++) {
+                for (let dy = -r; dy <= r; dy++) {
+                    let mx = cx + dx, my = cy + dy
+                    if (mx >= 0 && my >= 0 && mx < this.columns && my < this.lines) {
+                        if (this.worldMap[my][mx] === 0) {
+                            this.position = new Vec(mx + 0.5, my + 0.5)
+                            return
+                        }
                     }
                 }
             }
         }
+    }
 
     // Screen.js 读取的便捷 getter
     get posX() { return this.position.x }
@@ -87,22 +89,25 @@ class Player {
         this.moveSpeed = on ? this.moveSpeedSprint : this.moveSpeedBase
     }
 
+    takeDamage(amount) {
+        if (this.invincibleTimer > 0) return
+        this.hp = Math.max(0, this.hp - amount)
+        this.invincibleTimer = 0.5
+    }
+
     registerAction() {
         let g = this.game
-
-        // 键盘旋转（A/D）
-        g.registerAction('a', (dt) => this.rotate(-this.rotSpeed * dt))
-        g.registerAction('d', (dt) => this.rotate(+this.rotSpeed * dt))
 
         // 前后移动
         g.registerAction('w', (dt) => this.tryMove(this.dirX, this.dirY, this.moveSpeed * dt))
         g.registerAction('s', (dt) => this.tryMove(-this.dirX, -this.dirY, this.moveSpeed * dt))
 
-        // 左右平移（strafe）：沿 -plane 方向平移，垂直于朝向向量 dir
+        // 左右平移（A/D 为主，Q 兼容）
+        g.registerAction('a', (dt) => this.tryMove(-this.planeX, -this.planeY, this.moveSpeed * dt))
+        g.registerAction('d', (dt) => this.tryMove(this.planeX, this.planeY, this.moveSpeed * dt))
         g.registerAction('q', (dt) => this.tryMove(-this.planeX, -this.planeY, this.moveSpeed * dt))
-        g.registerAction('e', (dt) => this.tryInteractDoor())
 
-        // 方向键兼容（可选的）
+        // 方向键兼容
         g.registerAction('ArrowUp', (dt) => this.tryMove(this.dirX, this.dirY, this.moveSpeed * dt))
         g.registerAction('ArrowDown', (dt) => this.tryMove(-this.dirX, -this.dirY, this.moveSpeed * dt))
         g.registerAction('ArrowLeft', (dt) => this.rotate(-this.rotSpeed * dt))
@@ -123,9 +128,8 @@ class Player {
         this.planeY = oldPlaneX * sin + this.planeY * cos
     }
 
-    // ====== 移动：分轴碰撞检测（先尝试 X 轴，再尝试 Y 轴）
+    // ====== 移动：分轴碰撞检测（原子化：先分别判定，再一起应用）
     tryMove(dx, dy, step) {
-        // 归一化方向
         let len = Math.sqrt(dx * dx + dy * dy)
         if (len < 0.0001) return
         dx = dx / len
@@ -133,54 +137,48 @@ class Player {
 
         let r = this.collisionRadius
 
-        // === X 轴方向
         let newX = this.position.x + dx * step
-        let checkX = newX + Math.sign(dx) * r
-        if (this.cellIsEmpty(checkX, this.position.y) &&
-            !this._collidesBlockingSprite(newX, this.position.y)) {
-            this.position.x = newX
-        }
-
-        // === Y 轴方向
         let newY = this.position.y + dy * step
+        let checkX = newX + Math.sign(dx) * r
         let checkY = newY + Math.sign(dy) * r
-        if (this.cellIsEmpty(this.position.x, checkY) &&
-            !this._collidesBlockingSprite(this.position.x, newY)) {
-            this.position.y = newY
+
+        let canMoveX = true
+        for (let offset of [0, 0.3, -0.3, 0.55, -0.55, 0.85, -0.85]) {
+            let sy = this.position.y + offset * r
+            if (!this.cellIsEmpty(checkX, sy)) { canMoveX = false; break }
         }
+        if (canMoveX && dy !== 0) {
+            let sy = this.position.y + Math.sign(dy) * r
+            if (!this.cellIsEmpty(checkX, sy)) canMoveX = false
+        }
+
+        let canMoveY = true
+        for (let offset of [0, 0.3, -0.3, 0.55, -0.55, 0.85, -0.85]) {
+            let sx = this.position.x + offset * r
+            if (!this.cellIsEmpty(sx, checkY)) { canMoveY = false; break }
+        }
+        if (canMoveY && dx !== 0) {
+            let sx = this.position.x + Math.sign(dx) * r
+            if (!this.cellIsEmpty(sx, checkY)) canMoveY = false
+        }
+
+        if (canMoveX) this.position.x = newX
+        if (canMoveY) this.position.y = newY
     }
 
-    // 按 E 键：检测玩家面前 1 格是否有门，有则切换开关
-    tryInteractDoor() {
-        let mx = Math.floor(this.position.x + this.dirX)
-        let my = Math.floor(this.position.y + this.dirY)
-        if (this.bg.isDoor(mx, my)) {
-            this.bg.toggleDoor(mx, my)
-            let d = this.bg.doors[mx + ',' + my]
-            if (window.audioManager) {
-                if (d.open) window.audioManager.playDoor()
-                else window.audioManager.playDoorClose()
-            }
-        }
-    }
-
-    // 碰撞检测：某格子是否可通过（空地 或 门已打开 > 0.9）
     cellIsEmpty(x, y) {
         let mx = Math.floor(x)
         let my = Math.floor(y)
         if (mx < 0 || my < 0 || mx >= this.columns || my >= this.lines) return false
-        let cell = this.worldMap[my][mx]
-        if (cell === 0) return true
-        // 门且完全打开则可通过
-        if (this.bg.isDoorPassable(mx, my)) return true
-        return false
+        return this.worldMap[my][mx] === 0
     }
 
     _collidesBlockingSprite(x, y) {
         if (!this.spriteManager || !this.spriteManager.sprites || this.spriteManager.sprites.length === 0) return false
         for (let s of this.spriteManager.sprites) {
             if (!s.alive) continue
-            if (!s.isBlocking) continue   // 只有阻挡型精灵才拦路（物品不阻挡）
+            if (!s.isBlocking) continue
+            if (s.type === 'enemy') continue
             let dx = x - s.x
             let dy = y - s.y
             let minDist = this.collisionRadius + (s.radius || 0.2)
@@ -199,7 +197,7 @@ class Player {
             let pickRadius = 0.5
             if (dx * dx + dy * dy < pickRadius * pickRadius) {
                 s.alive = false
-                // 这里可以播放音效等（后续阶段 GL 再实现）
+                this.hp = Math.min(this.maxHp, this.hp + 30)
             }
         }
     }
@@ -209,6 +207,38 @@ class Player {
     draw() {
         this.drawPlayer()
         this.drawDirArrow()
+        this.drawRays()
+    }
+
+    drawRays() {
+        let ctx = this.game.context
+        let unit = this.unit
+        let startX = this.position.x * unit
+        let startY = this.position.y * unit
+        let rayColor = new Color(255, 255, 100, 0.3)
+        let centerRayColor = new Color(255, 255, 255, 0.8)
+
+        let centerAngle = Math.atan2(this.dirY, this.dirX)
+        let halfFov = Math.atan2(0.66, 1.0)
+        let totalSteps = Math.round(2 * halfFov / (5 * Math.PI / 180))
+        if (totalSteps < 1) totalSteps = 1
+        let centerStep = Math.round(totalSteps / 2)
+
+        for (let i = 0; i <= totalSteps; i++) {
+            let angle = centerAngle - halfFov + (2 * halfFov * i / totalSteps)
+            let rx = Math.cos(angle), ry = Math.sin(angle)
+            let dist = 0.1, maxDist = 20
+            while (dist < maxDist) {
+                let cx = Math.floor(this.position.x + rx * dist)
+                let cy = Math.floor(this.position.y + ry * dist)
+                if (cx < 0 || cy < 0 || cx >= this.columns || cy >= this.lines) break
+                if (this.worldMap[cy][cx] > 0 && this.worldMap[cy][cx] < 101) break
+                dist += 0.05
+            }
+            let color = (i === centerStep) ? centerRayColor : rayColor
+            drawLine(ctx, color, startX, startY,
+                startX + rx * dist * unit, startY + ry * dist * unit)
+        }
     }
 
     drawPlayer() {
@@ -219,33 +249,6 @@ class Player {
     }
 
     drawDirArrow() {
-        let unit = this.unit
-        let startX = this.position.x * unit
-        let startY = this.position.y * unit
-        let ctx = this.game.context
-
-        // 黄色朝向箭头
-        drawLine(ctx, this.dirArrowColor, startX, startY,
-            startX + this.dirX * unit * 1.5,
-            startY + this.dirY * unit * 1.5)
-
-        // FOV 扇形边界（虚线样式）
-        let leftX = this.dirX - this.planeX
-        let leftY = this.dirY - this.planeY
-        let leftLen = Math.sqrt(leftX * leftX + leftY * leftY)
-        leftX /= leftLen
-        leftY /= leftLen
-        drawLine(ctx, this.rayColor, startX, startY,
-            startX + leftX * unit * 2.5,
-            startY + leftY * unit * 2.5)
-
-        let rightX = this.dirX + this.planeX
-        let rightY = this.dirY + this.planeY
-        let rightLen = Math.sqrt(rightX * rightX + rightY * rightY)
-        rightX /= rightLen
-        rightY /= rightLen
-        drawLine(ctx, this.rayColor, startX, startY,
-            startX + rightX * unit * 2.5,
-            startY + rightY * unit * 2.5)
+        // 朝向已由 drawRays 中白色中心射线表示，此处不再绘制黄线
     }
 }

@@ -4,76 +4,92 @@
 //       AudioManager（音效）+ Weapon（武器射击）
 // 形成一个完整可玩的场景。
 
+const ENEMY_TYPES = [
+    { tex: 201, speed: 1.2, hp: 100, damage: 20 },
+    { tex: 203, speed: 2.5, hp: 60,  damage: 10 },
+    { tex: 204, speed: 0.7, hp: 200, damage: 35 },
+    { tex: 205, speed: 1.0, hp: 80,  damage: 25 },
+]
+
 class GameScene {
     constructor(game) {
         this.game = game
         this.height = game.canvas.height
         this.width = game.canvas.width
+        this.state = 'menu'
+        this.score = 0
+        this.wave = 0
 
+        this.overlay = new OverlayScreen()
         this.init()
+        this.overlay.show()
+        this.overlay.drawTitle()
     }
 
     init() {
         let g = this.game
 
-        // 地图
         this.bg = new Background(g)
-
-        // 纹理（给墙壁 / 地板 / 天花板 / 精灵使用）
         this.textureManager = new TextureManager()
-
-        // 精灵：放在地图空地（确保 worldMap[y][x] === 0）
         this.spriteManager = new SpriteManager()
         this._placeSprites()
 
-        // 玩家（传入 spriteManager 以便精灵碰撞/捡取）
         this.player = new Player(g, this.bg, this.spriteManager)
-
-        // 3D 视图
         this.screen = new Screen(g, this.player, this.bg, this.textureManager, this.spriteManager)
-
-        // 音效（Web Audio API 程序化合成）
         this.audioManager = window.audioManager
-
-        // 武器
         this.weapon = new Weapon(this.player, this.bg, this.spriteManager)
     }
 
-    // 根据现有地图自动选择几个有代表性的空地放置精灵
-    _placeSprites() {
-        // 候选位置（必须是 worldMap[y][x] === 0 的格）
-        // 在 10×10 默认地图中外圈都是 1（红砖墙），内部 2/3/4 是蓝/绿/橙墙
-        // 所以安全区域大致在行 1-8 之间
-        const empties = this._findEmptyCells()
+    startGame() {
+        this.state = 'playing'
+        this.overlay.hide()
+        if (this.audioManager) this.audioManager.startBgm()
+    }
 
-        // 选取几个分散的点：敌人（红圆脸）放远处，物品（红十字）放近处/路边
-        let placed = 0
+    reset() {
+        this.overlay.hide()
+        this.state = 'playing'
+        this.score = 0
+        this.wave = 0
+        this.init()
+        if (this.audioManager) this.audioManager.startBgm()
+    }
+
+    _spawnEnemy(cx, cy) {
+        let t = ENEMY_TYPES[Math.floor(Math.random() * ENEMY_TYPES.length)]
+        this.spriteManager.add(new Sprite(cx + 0.5, cy + 0.5, t.tex, {
+            type: 'enemy', speed: t.speed, hp: t.hp, damage: t.damage
+        }))
+    }
+
+    _placeSprites() {
+        const empties = this._findEmptyCells()
+        // Fisher-Yates 洗牌，避免敌人/物品并排
+        for (let i = empties.length - 1; i > 0; i--) {
+            let j = Math.floor(Math.random() * (i + 1))
+            ;[empties[i], empties[j]] = [empties[j], empties[i]]
+        }
         let enemyCount = 0
         let itemCount = 0
-        const playerStartX = 1.5
-        const playerStartY = 1.5
+        const playerStartX = Math.floor(this.bg.columns / 2) + 0.5
+        const playerStartY = Math.floor(this.bg.lines / 2) + 0.5
 
         for (let [cx, cy] of empties) {
-            // 不放在玩家出生点附近（防止一出生就撞敌人）
             let dx = cx + 0.5 - playerStartX
             let dy = cy + 0.5 - playerStartY
             let dist = Math.sqrt(dx * dx + dy * dy)
             if (dist < 1.5) continue
 
-            // 交替放敌人 / 物品；限制数量避免性能问题
-            if (placed % 3 === 0 && enemyCount < 2) {
-                this.spriteManager.add(new Sprite(cx + 0.5, cy + 0.5, 201, {
-                    type: 'enemy', speed: 1.2, hp: 100
-                }))
+            if (enemyCount < 4) {
+                this._spawnEnemy(cx, cy)
                 enemyCount++
-            } else if (placed % 3 === 1 && itemCount < 3) {
+            } else if (itemCount < 5) {
                 this.spriteManager.add(new Sprite(cx + 0.5, cy + 0.5, 202, {
                     type: 'item', isPickable: true
                 }))
                 itemCount++
             }
-            placed++
-            if (enemyCount >= 2 && itemCount >= 3) break
+            if (enemyCount >= 4 && itemCount >= 5) break
         }
     }
 
@@ -88,36 +104,79 @@ class GameScene {
         return result
     }
 
-    // 每帧：驱动精灵更新（AI / 捡取）+ 门动画
+    _respawnEnemies() {
+        this.wave++
+        if (this.wave >= 5) {
+            this.state = 'win'
+            this.overlay.show()
+            this.overlay.drawWin()
+            return
+        }
+        let empties = this._findEmptyCells()
+        let px = this.player.position.x, py = this.player.position.y
+        empties = empties.filter(([cx, cy]) => {
+            let dx = cx + 0.5 - px, dy = cy + 0.5 - py
+            return Math.sqrt(dx * dx + dy * dy) > 2
+        })
+        for (let i = empties.length - 1; i > 0; i--) {
+            let j = Math.floor(Math.random() * (i + 1))
+            ;[empties[i], empties[j]] = [empties[j], empties[i]]
+        }
+        let count = Math.min(4 + this.wave, empties.length)
+        for (let i = 0; i < count; i++) {
+            let [cx, cy] = empties[i]
+            this._spawnEnemy(cx, cy)
+        }
+    }
+
+    addScore(pts) {
+        this.score += pts
+    }
+
+    // 每帧：驱动精灵更新（AI / 捡取）+ 门动画 + 死亡/通关检测
     update(dt) {
+        if (this.state !== 'playing') return
+
         if (this.spriteManager) {
             this.spriteManager.update(dt, this.player, this.bg)
         }
-        // 门动画推进
-        this.bg.updateDoors(dt)
-        // 武器状态更新（后坐力衰减）
         if (this.weapon) {
             this.weapon.update(dt)
         }
-        // 走路脚步声（自动间隔触发）
+        if (this.player.invincibleTimer > 0) {
+            this.player.invincibleTimer = Math.max(0, this.player.invincibleTimer - dt)
+        }
         if (this.audioManager) {
             let moving = !!(this.game.keysdown['w'] || this.game.keysdown['s'] ||
                           this.game.keysdown['a'] || this.game.keysdown['d'] ||
                           this.game.keysdown['q'])
             this.audioManager.updateStep(dt, moving)
         }
+
+        // 死亡检测
+        if (this.player.hp <= 0) {
+            this.state = 'gameover'
+            this.overlay.show()
+            this.overlay.drawGameover()
+            return
+        }
+
+        // 敌人全灭后重新生成
+        let enemies = this.spriteManager.sprites.filter(s => s.type === 'enemy')
+        let aliveEnemies = enemies.filter(s => s.alive)
+        if (enemies.length > 0 && aliveEnemies.length === 0) {
+            this._respawnEnemies()
+        }
     }
 
     draw() {
-        // 1) 左侧小地图
+        if (this.state !== 'playing') return
+
         this.bg.draw()
-        // 2) 精灵在小地图上的圆点（在玩家之上显示）
         if (this.spriteManager) {
             this.spriteManager.drawOnMinimap(this.game.context, this.bg.unit)
         }
-        // 3) 玩家位置 / 朝向
         this.player.draw()
-        // 4) 右侧 3D 视图（含精灵 3D 绘制）
         this.screen.draw()
     }
 }
