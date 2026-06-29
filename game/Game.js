@@ -148,13 +148,13 @@ class Game {
             this.scene.update(this.dt)
         }
 
-        if (this.scene.weapon && this.scene.weapon.triggerDown) {
+        if (this.scene.weapon && (this.scene.weapon.triggerDown || this.keysdown[' '])) {
             let enemy = this.scene.weapon.fire()
             if (enemy) {
                 let dead = enemy.takeDamage(35)
                 if (dead) {
                     if (window.audioManager) window.audioManager.playEnemyDeath()
-                    this.scene.addScore(100)
+                    this.scene.addScore(enemy.score || 100)
                 } else {
                     if (window.audioManager) window.audioManager.playHit()
                 }
@@ -184,9 +184,9 @@ class Game {
         let ctx = this.contextImage
         let width = this.canvasImage.width
 
-        // 右上：FPS
+        // 右上：FPS + 信息背景
         ctx.fillStyle = 'rgba(0,0,0,0.5)'
-        ctx.fillRect(width - 110, 8, 102, 44)
+        ctx.fillRect(width - 130, 6, 124, 86)
         ctx.fillStyle = 'rgb(200,255,200)'
         ctx.font = '12px monospace'
         ctx.textAlign = 'right'
@@ -203,15 +203,23 @@ class Game {
         ctx.font = 'bold 14px monospace'
         ctx.fillText('SCORE: ' + (this.scene ? this.scene.score : 0), width - 14, 66)
 
+        // 右上：波次
+        // 右上：波次
+        if (this.scene) {
+            ctx.fillStyle = 'rgb(180,220,255)'
+            ctx.font = 'bold 13px monospace'
+            ctx.fillText('WAVE: ' + (this.scene.wave + 1) + '/5', width - 14, 82)
+        }
+
         // 左上：pointer lock 提示（仅在未锁定时显示）
         if (!this.isPointerLocked) {
             ctx.textAlign = 'left'
             ctx.fillStyle = 'rgba(0,0,0,0.55)'
-            ctx.fillRect(8, 8, 240, 50)
+            ctx.fillRect(8, 8, 260, 52)
             ctx.fillStyle = 'rgb(255,220,120)'
             ctx.font = '13px monospace'
             ctx.fillText('[点击画面] 启动鼠标视角', 14, 26)
-            ctx.fillText('WASD 移动  A/D 旋转  Shift 加速', 14, 46)
+            ctx.fillText('WASD 移动  A/D/Q 平移  Space 射击', 14, 46)
         }
 
         // 左下：血条
@@ -224,6 +232,10 @@ class Game {
             ctx.fillRect(barX, barY, barW, barH)
             let hpRatio = Math.max(0, p.hp / p.maxHp)
             let fillColor = hpRatio > 0.5 ? 'rgb(50,200,50)' : 'rgb(230,40,40)'
+            // 无敌闪烁：每 0.1 秒交替亮白/正常
+            if (p.invincibleTimer > 0 && Math.floor(p.invincibleTimer * 3) % 2 === 0) {
+                fillColor = 'rgb(255,255,255)'
+            }
             ctx.fillStyle = fillColor
             ctx.fillRect(barX + 1, barY + 1, (barW - 2) * hpRatio, barH - 2)
             ctx.fillStyle = 'rgb(255,255,255)'

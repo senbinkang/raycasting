@@ -63,7 +63,7 @@ class Screen {
         }
 
         // 精灵/地板/地板整张图缓存（textures.getPixels 已有 _pixelCache，这里做二次映射）
-        for (let idx of [5, 6, 7, 8, 9, 10, 11]) {
+        for (let idx of [10, 11]) {
             let canvas = this.textures.textures[idx]
             if (!canvas) continue
             let ctx = canvas.getContext('2d')
@@ -287,27 +287,12 @@ class Screen {
             else { stepY = 1; sideDistY = (mapY + 1.0 - posY) * deltaDistY }
 
             let hit = 0, side = 0, safety = 0
-            let doorOpenProgress = 0  // 0 = 不是门，>0 = 门开程度
             while (hit === 0 && safety < 200) {
                 if (sideDistX < sideDistY) { sideDistX += deltaDistX; mapX += stepX; side = 0 }
                 else { sideDistY += deltaDistY; mapY += stepY; side = 1 }
                 if (mapX < 0 || mapY < 0 || mapX >= bg.columns || mapY >= bg.lines) { hit = 1; break }
                 if (worldMap[mapY][mapX] > 0) {
-                    let cell = worldMap[mapY][mapX]
-                    if (cell >= 101 && cell <= 199) {
-                        // 门格
-                        let d = bg.doors[mapX + ',' + mapY]
-                        doorOpenProgress = d ? d.openProgress : 0
-                        if (doorOpenProgress >= 0.9) {
-                            // 门完全打开，射线穿过，继续搜索
-                            doorOpenProgress = 0  // 重置，不渲染墙体
-                        } else {
-                            hit = 1  // 门关闭或有遮挡，渲染墙体
-                        }
-                    } else {
-                        // 普通墙
-                        hit = 1
-                    }
+                    hit = 1
                 }
                 safety++
             }
@@ -321,17 +306,6 @@ class Screen {
             let drawEnd = drawStart + lineHeight
             if (drawStart < 0) drawStart = 0
             if (drawEnd > height) drawEnd = height
-
-            // 门：按 openProgress 缩小墙体可见高度（越开越矮）
-            if (doorOpenProgress > 0) {
-                let doorVisible = 1 - doorOpenProgress
-                let centerY = height / 2
-                let halfVisible = (lineHeight / 2) * doorVisible
-                drawStart = Math.floor(centerY - halfVisible)
-                drawEnd = Math.floor(centerY + halfVisible)
-                if (drawStart < 0) drawStart = 0
-                if (drawEnd > height) drawEnd = height
-            }
 
             // 消除列间缝隙
             if (drawStart > 0) drawStart--

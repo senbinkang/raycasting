@@ -27,6 +27,8 @@ class Sprite {
         this.hp = options.hp || 100
         this.maxHp = this.hp
         this.damage = options.damage || 20
+        this.score = options.score || 100
+        this.contactTimer = 0
         this.alive = true
 
         // 物品自动不阻挡；其它默认阻挡，除非显式说不阻挡
@@ -48,7 +50,7 @@ class Sprite {
         return false
     }
 
-    // 简单 AI：朝玩家走，视线被墙挡住时不动；被门挡住也不走
+    // 简单 AI：朝玩家走，视线被墙挡住时不动
     update(dt, player, bg) {
         if (!this.alive || this.type !== 'enemy' || this.speed === 0) return
 
@@ -56,13 +58,27 @@ class Sprite {
         let dy = player.position.y - this.y
         let dist = Math.sqrt(dx * dx + dy * dy)
 
-        if (dist > 20) return   // 太远不处理
+        if (dist > 20) return
+
+        // 接触伤害（在视线检测之前，贴着就该扣血）
+        if (dist < 0.8) {
+            if (this.contactTimer <= 0) {
+                player.takeDamage(this.damage || 20)
+                this.contactTimer = 3
+            }
+        } else {
+            this.contactTimer = 0
+        }
+        if (this.contactTimer > 0) this.contactTimer -= dt
+
+        // 保持安全距离
+        if (dist < 0.8) return
 
         // 归一化移动方向
         let ndx = dx / dist
         let ndy = dy / dist
 
-        // 视线检查：沿玩家-敌人连线按格采样，遇到墙视为看不见
+        // 视线检查（只影响移动，不影响扣血）
         let canSee = true
         let steps = Math.max(2, Math.floor(dist * 4))
         for (let i = 1; i <= steps; i++) {
@@ -73,14 +89,6 @@ class Sprite {
             if (bg.worldMap[cy][cx] !== 0) { canSee = false; break }
         }
         if (!canSee) return
-
-        // 接触伤害
-        if (dist < 0.6) {
-            player.takeDamage((this.damage || 20) * dt)
-        }
-
-        // 保持安全距离，不贴脸
-        if (dist < 0.8) return
 
         // 朝玩家方向移动（多点采样 + 对角点 + 分轴碰撞）
         let r = this.radius || 0.2

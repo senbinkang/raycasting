@@ -95,42 +95,6 @@ class AudioManager {
         osc.stop(ctx.currentTime + 0.3)
     }
 
-    // 开门：上行音调
-    playDoor() {
-        this._init()
-        this._resume()
-        const ctx = this.ctx
-        const osc = ctx.createOscillator()
-        const gain = ctx.createGain()
-        osc.connect(gain)
-        gain.connect(ctx.destination)
-        osc.type = 'triangle'
-        osc.frequency.setValueAtTime(120, ctx.currentTime)
-        osc.frequency.exponentialRampToValueAtTime(400, ctx.currentTime + 0.2)
-        gain.gain.setValueAtTime(0.15, ctx.currentTime)
-        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25)
-        osc.start(ctx.currentTime)
-        osc.stop(ctx.currentTime + 0.25)
-    }
-
-    // 关门：下行音调
-    playDoorClose() {
-        this._init()
-        this._resume()
-        const ctx = this.ctx
-        const osc = ctx.createOscillator()
-        const gain = ctx.createGain()
-        osc.connect(gain)
-        gain.connect(ctx.destination)
-        osc.type = 'triangle'
-        osc.frequency.setValueAtTime(350, ctx.currentTime)
-        osc.frequency.exponentialRampToValueAtTime(100, ctx.currentTime + 0.2)
-        gain.gain.setValueAtTime(0.12, ctx.currentTime)
-        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.2)
-        osc.start(ctx.currentTime)
-        osc.stop(ctx.currentTime + 0.2)
-    }
-
     // 走路脚步声：低频"咚咚"，每 stepInterval 秒触发一次
     playStep() {
         this._init()

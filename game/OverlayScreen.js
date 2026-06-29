@@ -36,9 +36,9 @@ class OverlayScreen {
         ctx.fillText('按 Enter / Space 开始游戏', this.width / 2, this.height / 2 + 50)
 
         ctx.fillStyle = 'rgb(160,160,160)'
-        ctx.font = '13px monospace'
-        ctx.fillText('WASD 移动  |  鼠标左键射击  |  E 开关门  |  Shift 加速', this.width / 2, this.height / 2 + 90)
-        ctx.fillText('点击画面启用鼠标视角  |  Esc 解除', this.width / 2, this.height / 2 + 110)
+        ctx.font = '12px monospace'
+        ctx.fillText('纯键盘：WASD 移动 | ← → 旋转 | Space 射击 | Shift 加速', this.width / 2, this.height / 2 + 85)
+        ctx.fillText('键鼠：WASD 移动 | 鼠标旋转视角 | 左键/Space 射击 | Shift 加速', this.width / 2, this.height / 2 + 105)
     }
 
     drawGameover() {

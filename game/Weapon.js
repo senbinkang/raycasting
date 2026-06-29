@@ -17,9 +17,7 @@ class Weapon {
         this.cooldownTime = 0.18  // 秒
 
         // 射击状态
-        this.triggerDown = false  // 鼠标左键是否按住
-        this.lastFireTime = 0
-        this.fireRate = 0.18     // 秒 / 发
+        this.triggerDown = false
     }
 
     // 每帧调用：更新后坐力 + 射击冷却

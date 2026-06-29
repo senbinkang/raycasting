@@ -49,7 +49,6 @@ class Player {
         this.hp = 100
         this.maxHp = 100
         this.invincibleTimer = 0
-
         // 颜色
         this.playerColor = new Color(88, 221, 253)
         this.dirArrowColor = new Color(255, 200, 0)
@@ -92,7 +91,7 @@ class Player {
     takeDamage(amount) {
         if (this.invincibleTimer > 0) return
         this.hp = Math.max(0, this.hp - amount)
-        this.invincibleTimer = 0.5
+        this.invincibleTimer = 2
     }
 
     registerAction() {
@@ -173,20 +172,6 @@ class Player {
         return this.worldMap[my][mx] === 0
     }
 
-    _collidesBlockingSprite(x, y) {
-        if (!this.spriteManager || !this.spriteManager.sprites || this.spriteManager.sprites.length === 0) return false
-        for (let s of this.spriteManager.sprites) {
-            if (!s.alive) continue
-            if (!s.isBlocking) continue
-            if (s.type === 'enemy') continue
-            let dx = x - s.x
-            let dy = y - s.y
-            let minDist = this.collisionRadius + (s.radius || 0.2)
-            if (dx * dx + dy * dy < minDist * minDist) return true
-        }
-        return false
-    }
-
     // 捡取物品（每次更新：检测玩家与物品精灵的碰撞
     pickupItems() {
         if (!this.spriteManager) return
@@ -196,6 +181,7 @@ class Player {
             let dy = this.position.y - s.y
             let pickRadius = 0.5
             if (dx * dx + dy * dy < pickRadius * pickRadius) {
+                if (this.hp >= this.maxHp) continue
                 s.alive = false
                 this.hp = Math.min(this.maxHp, this.hp + 30)
             }
@@ -206,7 +192,6 @@ class Player {
 
     draw() {
         this.drawPlayer()
-        this.drawDirArrow()
         this.drawRays()
     }
 
@@ -248,7 +233,4 @@ class Player {
         drawArc(this.game.context, this.playerColor, px, py, this.r)
     }
 
-    drawDirArrow() {
-        // 朝向已由 drawRays 中白色中心射线表示，此处不再绘制黄线
-    }
 }
