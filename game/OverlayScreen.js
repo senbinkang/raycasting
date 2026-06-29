@@ -37,8 +37,8 @@ class OverlayScreen {
 
         ctx.fillStyle = 'rgb(160,160,160)'
         ctx.font = '12px monospace'
-        ctx.fillText('纯键盘：WASD 移动 | ← → 旋转 | Space 射击 | Shift 加速', this.width / 2, this.height / 2 + 85)
-        ctx.fillText('键鼠：WASD 移动 | 鼠标旋转视角 | 左键/Space 射击 | Shift 加速', this.width / 2, this.height / 2 + 105)
+        ctx.fillText('纯键盘：WASD/↑↓ 移动 | ← → 旋转 | Space 射击 | Shift 加速', this.width / 2, this.height / 2 + 85)
+        ctx.fillText('键鼠：WASD/↑↓ 移动 | 鼠标旋转视角 | 左键/Space 射击 | Shift 加速', this.width / 2, this.height / 2 + 105)
     }
 
     drawGameover() {

@@ -151,7 +151,7 @@ class Game {
         if (this.scene.weapon && (this.scene.weapon.triggerDown || this.keysdown[' '])) {
             let enemy = this.scene.weapon.fire()
             if (enemy) {
-                let dead = enemy.takeDamage(35)
+                let dead = enemy.takeDamage(50)
                 if (dead) {
                     if (window.audioManager) window.audioManager.playEnemyDeath()
                     this.scene.addScore(enemy.score || 100)
@@ -219,7 +219,7 @@ class Game {
             ctx.fillStyle = 'rgb(255,220,120)'
             ctx.font = '13px monospace'
             ctx.fillText('[点击画面] 启动鼠标视角', 14, 26)
-            ctx.fillText('WASD 移动  A/D/Q 平移  Space 射击', 14, 46)
+            ctx.fillText('WASD/↑↓ 移动  A/D 平移  Space 射击', 14, 46)
         }
 
         // 左下：血条

@@ -101,10 +101,9 @@ class Player {
         g.registerAction('w', (dt) => this.tryMove(this.dirX, this.dirY, this.moveSpeed * dt))
         g.registerAction('s', (dt) => this.tryMove(-this.dirX, -this.dirY, this.moveSpeed * dt))
 
-        // 左右平移（A/D 为主，Q 兼容）
+        // 左右平移（A/D）
         g.registerAction('a', (dt) => this.tryMove(-this.planeX, -this.planeY, this.moveSpeed * dt))
         g.registerAction('d', (dt) => this.tryMove(this.planeX, this.planeY, this.moveSpeed * dt))
-        g.registerAction('q', (dt) => this.tryMove(-this.planeX, -this.planeY, this.moveSpeed * dt))
 
         // 方向键兼容
         g.registerAction('ArrowUp', (dt) => this.tryMove(this.dirX, this.dirY, this.moveSpeed * dt))

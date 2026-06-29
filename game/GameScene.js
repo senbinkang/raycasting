@@ -5,10 +5,10 @@
 // 形成一个完整可玩的场景。
 
 const ENEMY_TYPES = [
-    { tex: 201, speed: 1.2, hp: 100, damage: 10, score: 100 },
-    { tex: 203, speed: 2.5, hp: 60,  damage: 10, score: 200 },
-    { tex: 204, speed: 0.7, hp: 200, damage: 10, score: 400 },
-    { tex: 205, speed: 1.0, hp: 80,  damage: 10, score: 300 },
+    { tex: 203, speed: 3.0, hp: 50,  damage: 10, score: 50 },
+    { tex: 201, speed: 1.5, hp: 100, damage: 10, score: 100 },
+    { tex: 205, speed: 1.2, hp: 150, damage: 10, score: 150 },
+    { tex: 204, speed: 0.6, hp: 200, damage: 10, score: 200 },
 ]
 
 class GameScene {
@@ -174,8 +174,7 @@ class GameScene {
         }
         if (this.audioManager) {
             let moving = !!(this.game.keysdown['w'] || this.game.keysdown['s'] ||
-                          this.game.keysdown['a'] || this.game.keysdown['d'] ||
-                          this.game.keysdown['q'])
+                          this.game.keysdown['a'] || this.game.keysdown['d'])
             this.audioManager.updateStep(dt, moving)
         }
 
