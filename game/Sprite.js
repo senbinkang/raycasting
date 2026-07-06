@@ -30,6 +30,12 @@ class Sprite {
         this.score = options.score || 100
         this.contactTimer = 0
         this.alive = true
+        this.patrolAngle = Math.random() * Math.PI * 2
+        this.patrolTimer = 2 + Math.random() * 2
+        this.hitFlashTimer = 0
+        this.ranged = options.ranged || false
+        this.shootInterval = options.shootInterval || 2
+        this.shootTimer = this.shootInterval
 
         // 物品自动不阻挡；其它默认阻挡，除非显式说不阻挡
         if (this.type === 'item') {
@@ -43,6 +49,7 @@ class Sprite {
     takeDamage(amount) {
         if (!this.alive) return false
         this.hp = Math.max(0, this.hp - amount)
+        this.hitFlashTimer = 0.1
         if (this.hp <= 0) {
             this.alive = false
             return true
@@ -50,17 +57,16 @@ class Sprite {
         return false
     }
 
-    // 简单 AI：朝玩家走，视线被墙挡住时不动
     update(dt, player, bg) {
         if (!this.alive || this.type !== 'enemy' || this.speed === 0) return
+        if (this.hitFlashTimer > 0) this.hitFlashTimer -= dt
 
         let dx = player.position.x - this.x
         let dy = player.position.y - this.y
         let dist = Math.sqrt(dx * dx + dy * dy)
 
-        if (dist > 20) return
+        if (dist > 20) { this._doPatrol(dt, bg); return }
 
-        // 接触伤害（在视线检测之前，贴着就该扣血）
         if (dist < 0.8) {
             if (this.contactTimer <= 0) {
                 player.takeDamage(this.damage || 20)
@@ -71,14 +77,11 @@ class Sprite {
         }
         if (this.contactTimer > 0) this.contactTimer -= dt
 
-        // 保持安全距离
         if (dist < 0.8) return
 
-        // 归一化移动方向
         let ndx = dx / dist
         let ndy = dy / dist
 
-        // 视线检查（只影响移动，不影响扣血）
         let canSee = true
         let steps = Math.max(2, Math.floor(dist * 4))
         for (let i = 1; i <= steps; i++) {
@@ -88,12 +91,44 @@ class Sprite {
             if (cx < 0 || cy < 0 || cx >= bg.columns || cy >= bg.lines) { canSee = false; break }
             if (bg.worldMap[cy][cx] !== 0) { canSee = false; break }
         }
-        if (!canSee) return
+        if (this.ranged) {
+            if (canSee) {
+                if (dist > 4) {
+                    this.shootTimer -= dt
+                    if (this.shootTimer <= 0) {
+                        this.shootTimer = this.shootInterval
+                        return { projectile: { x: this.x, y: this.y, ndx, ndy, speed: 4, damage: 15, originX: this.x, originY: this.y } }
+                    }
+                } else if (dist < 3) {
+                    this._moveToward(-ndx, -ndy, this.speed * dt, bg)
+                }
+            } else {
+                this._doPatrol(dt, bg)
+            }
+            return null
+        }
 
-        // 朝玩家方向移动（多点采样 + 对角点 + 分轴碰撞）
+        if (!canSee) { this._doPatrol(dt, bg); return null }
+
+        this._moveToward(ndx, ndy, this.speed * dt, bg)
+        return null
+    }
+
+    _doPatrol(dt, bg) {
+        this.patrolTimer -= dt
+        if (this.patrolTimer <= 0) {
+            this.patrolAngle = Math.random() * Math.PI * 2
+            this.patrolTimer = 2 + Math.random() * 2
+        }
+        let ndx = Math.cos(this.patrolAngle)
+        let ndy = Math.sin(this.patrolAngle)
+        this._moveToward(ndx, ndy, this.speed * 0.4 * dt, bg)
+    }
+
+    _moveToward(ndx, ndy, step, bg) {
         let r = this.radius || 0.2
-        let moveX = this.x + ndx * this.speed * dt
-        let moveY = this.y + ndy * this.speed * dt
+        let moveX = this.x + ndx * step
+        let moveY = this.y + ndy * step
 
         let checkX = moveX + Math.sign(ndx) * r
         let canMoveX = true

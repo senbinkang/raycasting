@@ -32,6 +32,7 @@ class Screen {
         this.fogG = 80
         this.fogB = 100
         this.flashlightStrength = 70
+        this.projectiles = []
 
         // ===== 预加载 =====
         this._wallColCache = {}       // key: "cell_texX" → Uint8ClampedArray(size*3)
@@ -93,6 +94,7 @@ class Screen {
         this._drawBg(imgData)
         this._drawWall(imgData)
         if (this.spriteManager) this._drawSprites(imgData)
+        if (this.projectiles && this.projectiles.length > 0) this._drawProjectiles(imgData)
         this.context.putImageData(imgData, 0, 0)
     }
 
@@ -455,6 +457,12 @@ class Screen {
 
                     if (a < 32) continue
 
+                    if (s.hitFlashTimer > 0) {
+                        r = Math.min(255, r + 150)
+                        g = Math.min(255, g + 150)
+                        b = Math.min(255, b + 150)
+                    }
+
                     r = (r * distFactor) | 0
                     g = (g * distFactor) | 0
                     b = (b * distFactor) | 0
@@ -463,6 +471,43 @@ class Screen {
                     pixels[pi]     = r
                     pixels[pi + 1] = g
                     pixels[pi + 2] = b
+                    pixels[pi + 3] = 255
+                }
+            }
+        }
+    }
+
+    _drawProjectiles(imgData) {
+        const player = this.player
+        const width = this.width
+        const height = this.height
+        const pixels = imgData.data
+        const zBuffer = this.zBuffer
+        const stride4 = width << 2
+
+        for (let p of this.projectiles) {
+            let sx = p.x - player.position.x
+            let sy = p.y - player.position.y
+            let invDet = 1.0 / (player.planeX * player.dirY - player.dirX * player.planeY)
+            let transformX = invDet * (player.dirY * sx - player.dirX * sy)
+            let transformY = invDet * (-player.planeY * sx + player.planeX * sy)
+            if (transformY <= 0.05) continue
+
+            let screenX = Math.floor((width / 2) * (1 + transformX / transformY))
+            let screenY = Math.floor(height / 2)
+            if (screenX < 0 || screenX >= width) continue
+            if (zBuffer[screenX] < transformY) continue
+
+            let size = Math.max(1, Math.floor(2 / transformY))
+            let distFactor = 1.0 / (1 + 0.01 * transformY * transformY)
+            for (let dy = -size; dy <= size; dy++) {
+                for (let dx = -size; dx <= size; dx++) {
+                    let rx = screenX + dx, ry = screenY + dy
+                    if (rx < 0 || rx >= width || ry < 0 || ry >= height) continue
+                    let pi = (rx << 2) + ry * stride4
+                    pixels[pi]     = Math.min(255, (pixels[pi] + 200 * distFactor) | 0)
+                    pixels[pi + 1] = Math.min(255, (pixels[pi + 1] + 180 * distFactor) | 0)
+                    pixels[pi + 2] = Math.min(255, (pixels[pi + 2] + 50 * distFactor) | 0)
                     pixels[pi + 3] = 255
                 }
             }

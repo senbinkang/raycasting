@@ -35,6 +35,11 @@ class Game {
 
         window.addEventListener('keydown', (e) => {
             this.keysdown[e.key] = true
+            if (e.key === 'p' || e.key === 'P') {
+                if (this.scene && this.scene.state === 'playing') {
+                    this.scene.paused = !this.scene.paused
+                }
+            }
             if ((e.key === 'Enter' || e.key === ' ') && this.scene) {
                 if (this.scene.state === 'menu') {
                     this.scene.startGame()
@@ -135,6 +140,11 @@ class Game {
             return
         }
 
+        if (this.scene.paused) {
+            this.mouseDX = 0
+            return
+        }
+
         if (this.mouseDX !== 0 && this.scene.player) {
             this.scene.player.rotate(this.mouseDX * this.mouseSensitivity)
             this.mouseDX = 0
@@ -153,7 +163,7 @@ class Game {
             if (enemy) {
                 let dead = enemy.takeDamage(50)
                 if (dead) {
-                    if (window.audioManager) window.audioManager.playEnemyDeath()
+                    if (window.audioManager) window.audioManager.playEnemyDeath(enemy.textureIndex)
                     this.scene.addScore(enemy.score || 100)
                 } else {
                     if (window.audioManager) window.audioManager.playHit()
@@ -176,6 +186,16 @@ class Game {
                 this.scene.weapon.draw(this.contextImage, this.canvasImage.width, this.canvasImage.height)
             }
             this.drawHUD()
+            if (this.scene.paused) {
+                let ctx = this.contextImage
+                ctx.fillStyle = 'rgba(0,0,0,0.45)'
+                ctx.fillRect(0, 0, this.canvasImage.width, this.canvasImage.height)
+                ctx.fillStyle = 'rgb(200,200,200)'
+                ctx.font = 'bold 48px monospace'
+                ctx.textAlign = 'center'
+                ctx.fillText('PAUSED', this.canvasImage.width / 2, this.canvasImage.height / 2)
+                ctx.textAlign = 'left'
+            }
         }
     }
 
@@ -186,7 +206,7 @@ class Game {
 
         // 右上：FPS + 信息背景
         ctx.fillStyle = 'rgba(0,0,0,0.5)'
-        ctx.fillRect(width - 130, 6, 124, 86)
+        ctx.fillRect(width - 130, 6, 124, 102)
         ctx.fillStyle = 'rgb(200,255,200)'
         ctx.font = '12px monospace'
         ctx.textAlign = 'right'
@@ -203,12 +223,18 @@ class Game {
         ctx.font = 'bold 14px monospace'
         ctx.fillText('SCORE: ' + (this.scene ? this.scene.score : 0), width - 14, 66)
 
-        // 右上：波次
+        // 右上：最高分
+        if (this.scene && this.scene.highScore > 0) {
+            ctx.fillStyle = 'rgb(255,180,80)'
+            ctx.font = '12px monospace'
+            ctx.fillText('HI: ' + this.scene.highScore, width - 14, 80)
+        }
+
         // 右上：波次
         if (this.scene) {
             ctx.fillStyle = 'rgb(180,220,255)'
             ctx.font = 'bold 13px monospace'
-            ctx.fillText('WAVE: ' + (this.scene.wave + 1) + '/5', width - 14, 82)
+            ctx.fillText('WAVE: ' + (this.scene.wave + 1) + '/5', width - 14, 96)
         }
 
         // 左上：pointer lock 提示（仅在未锁定时显示）
@@ -244,6 +270,15 @@ class Game {
             ctx.fillText('HP: ' + Math.ceil(p.hp) + '/' + p.maxHp, barX + barW / 2, barY + barH - 4)
         }
 
+        // 波次提示（屏幕中央大字渐隐）
+        if (this.scene && this.scene.waveNotifyTimer > 0) {
+            let alpha = Math.min(1, this.scene.waveNotifyTimer)
+            ctx.fillStyle = `rgba(255,220,80,${alpha})`
+            ctx.font = 'bold 36px monospace'
+            ctx.textAlign = 'center'
+            ctx.fillText('第 ' + (this.scene.wave + 1) + ' 波', this.canvasImage.width / 2, this.canvasImage.height / 2 - 20)
+        }
+
         ctx.textAlign = 'left'
     }
 
@@ -260,7 +295,9 @@ class Game {
             this._fpsTimer = 0
         }
 
-        this.doAction()
+        if (!this.scene || !this.scene.paused) {
+            this.doAction()
+        }
         this.update()
         this.clear()
         this.draw()

@@ -302,6 +302,33 @@ class TextureManager {
         return c
     }
 
+    generateRangedEnemy() {
+        let size = this.size
+        let c = this._newCanvas()
+        let ctx = c.getContext('2d')
+        ctx.clearRect(0, 0, size, size)
+        // 绿色身体
+        ctx.fillStyle = 'rgb(60, 180, 80)'
+        ctx.beginPath()
+        ctx.arc(size / 2, size / 2, size * 0.35, 0, Math.PI * 2)
+        ctx.fill()
+        // 炮管（深灰矩形水平伸出）
+        ctx.fillStyle = 'rgb(60,60,60)'
+        ctx.fillRect(size * 0.55, size * 0.45, size * 0.3, size * 0.1)
+        // 炮口
+        ctx.fillStyle = 'rgb(30,30,30)'
+        ctx.fillRect(size * 0.82, size * 0.43, size * 0.08, size * 0.14)
+        // 眼睛
+        ctx.fillStyle = 'rgb(255,255,255)'
+        ctx.beginPath(); ctx.arc(size * 0.38, size * 0.38, size * 0.07, 0, Math.PI * 2); ctx.fill()
+        ctx.beginPath(); ctx.arc(size * 0.38, size * 0.58, size * 0.07, 0, Math.PI * 2); ctx.fill()
+        ctx.fillStyle = 'rgb(0,0,0)'
+        ctx.beginPath(); ctx.arc(size * 0.38, size * 0.38, size * 0.035, 0, Math.PI * 2); ctx.fill()
+        ctx.beginPath(); ctx.arc(size * 0.38, size * 0.58, size * 0.035, 0, Math.PI * 2); ctx.fill()
+        this._addNoise(c, 10)
+        return c
+    }
+
     generateItem() {
         let size = this.size
         let c = this._newCanvas()
@@ -344,6 +371,7 @@ class TextureManager {
         this.textures[203] = this.generateFastEnemy()
         this.textures[204] = this.generateTankEnemy()
         this.textures[205] = this.generateGhostEnemy()
+        this.textures[206] = this.generateRangedEnemy()
     }
 
     // ===== 读取接口 =====

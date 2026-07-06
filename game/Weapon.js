@@ -30,6 +30,25 @@ class Weapon {
         }
     }
 
+    // 检测玩家到精灵之间是否有墙体阻挡
+    _hasLineOfSight(sprite) {
+        const player = this.player
+        let dx = sprite.x - player.position.x
+        let dy = sprite.y - player.position.y
+        let dist = Math.sqrt(dx * dx + dy * dy)
+        let ndx = dx / dist
+        let ndy = dy / dist
+        let steps = Math.max(2, Math.floor(dist * 4))
+        for (let i = 1; i <= steps; i++) {
+            let t = i / steps
+            let cx = Math.floor(player.position.x + ndx * (dist * t))
+            let cy = Math.floor(player.position.y + ndy * (dist * t))
+            if (cx < 0 || cy < 0 || cx >= this.bg.columns || cy >= this.bg.lines) return false
+            if (this.bg.worldMap[cy][cx] !== 0) return false
+        }
+        return true
+    }
+
     // 射击：屏幕空间命中检测 + 准星范围判定
     fire() {
         if (this.cooldown > 0) return null
@@ -65,7 +84,7 @@ class Weapon {
 
             let hitRange = Math.max(spriteWidth * 0.35, 8)
             let centerX = width / 2
-            if (Math.abs(spriteScreenX - centerX) < hitRange && transformY < bestDist) {
+            if (Math.abs(spriteScreenX - centerX) < hitRange && transformY < bestDist && this._hasLineOfSight(s)) {
                 bestDist = transformY
                 bestHit = s
             }

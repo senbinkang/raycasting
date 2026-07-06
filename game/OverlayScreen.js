@@ -41,7 +41,7 @@ class OverlayScreen {
         ctx.fillText('键鼠：WASD/↑↓ 移动 | 鼠标旋转视角 | 左键/Space 射击 | Shift 加速', this.width / 2, this.height / 2 + 105)
     }
 
-    drawGameover() {
+    drawGameover(score, highScore, isNewRecord) {
         let ctx = this.ctx
         ctx.clearRect(0, 0, this.width, this.height)
         ctx.fillStyle = 'rgba(80,0,0,0.7)'
@@ -50,14 +50,25 @@ class OverlayScreen {
         ctx.textAlign = 'center'
         ctx.fillStyle = 'rgb(220,30,30)'
         ctx.font = '56px monospace'
-        ctx.fillText('YOU DIED', this.width / 2, this.height / 2 - 20)
+        ctx.fillText('YOU DIED', this.width / 2, this.height / 2 - 40)
 
-        ctx.fillStyle = 'rgb(255,220,80)'
-        ctx.font = '20px monospace'
-        ctx.fillText('按 Enter / Space 重新开始', this.width / 2, this.height / 2 + 50)
+        if (score !== undefined) {
+            ctx.fillStyle = 'rgb(255,220,80)'
+            ctx.font = '18px monospace'
+            ctx.fillText('SCORE: ' + score, this.width / 2, this.height / 2 + 10)
+            ctx.fillText('BEST: ' + highScore, this.width / 2, this.height / 2 + 32)
+            if (isNewRecord) {
+                ctx.fillStyle = 'rgb(255,80,80)'
+                ctx.fillText('NEW RECORD!', this.width / 2, this.height / 2 + 54)
+            }
+        }
+
+        ctx.fillStyle = 'rgb(200,200,200)'
+        ctx.font = '18px monospace'
+        ctx.fillText('按 Enter / Space 重新开始', this.width / 2, this.height / 2 + 80)
     }
 
-    drawWin() {
+    drawWin(score, highScore, isNewRecord) {
         let ctx = this.ctx
         ctx.clearRect(0, 0, this.width, this.height)
         ctx.fillStyle = 'rgba(0,40,0,0.7)'
@@ -66,11 +77,22 @@ class OverlayScreen {
         ctx.textAlign = 'center'
         ctx.fillStyle = 'rgb(255,200,40)'
         ctx.font = '48px monospace'
-        ctx.fillText('MISSION', this.width / 2, this.height / 2 - 40)
-        ctx.fillText('COMPLETE', this.width / 2, this.height / 2 + 10)
+        ctx.fillText('MISSION', this.width / 2, this.height / 2 - 60)
+        ctx.fillText('COMPLETE', this.width / 2, this.height / 2 - 10)
 
-        ctx.fillStyle = 'rgb(255,220,80)'
-        ctx.font = '20px monospace'
-        ctx.fillText('按 Enter / Space 重新开始', this.width / 2, this.height / 2 + 70)
+        if (score !== undefined) {
+            ctx.fillStyle = 'rgb(255,220,80)'
+            ctx.font = '18px monospace'
+            ctx.fillText('SCORE: ' + score, this.width / 2, this.height / 2 + 30)
+            ctx.fillText('BEST: ' + highScore, this.width / 2, this.height / 2 + 52)
+            if (isNewRecord) {
+                ctx.fillStyle = 'rgb(255,80,80)'
+                ctx.fillText('NEW RECORD!', this.width / 2, this.height / 2 + 74)
+            }
+        }
+
+        ctx.fillStyle = 'rgb(200,200,200)'
+        ctx.font = '18px monospace'
+        ctx.fillText('按 Enter / Space 重新开始', this.width / 2, this.height / 2 + 100)
     }
 }

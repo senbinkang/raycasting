@@ -92,6 +92,7 @@ class Player {
         if (this.invincibleTimer > 0) return
         this.hp = Math.max(0, this.hp - amount)
         this.invincibleTimer = 2
+        if (window.audioManager) window.audioManager.playPlayerHurt()
     }
 
     registerAction() {

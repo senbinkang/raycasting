@@ -77,22 +77,33 @@ class AudioManager {
         this._noise(0.1, 0.15)
     }
 
-    // 敌人死亡：下行音调
-    playEnemyDeath() {
+    // 敌人死亡：下行音调，不同类型不同参数
+    playEnemyDeath(type) {
         this._init()
         this._resume()
         const ctx = this.ctx
+        let startFreq = 300, duration = 0.3, vol = 0.3
+        if (type === 203) { startFreq = 600; duration = 0.15 }       // 快速：尖锐短促
+        else if (type === 204) { startFreq = 120; duration = 0.5; vol = 0.4 }  // 坦克：低沉悠长
         const osc = ctx.createOscillator()
         const gain = ctx.createGain()
         osc.connect(gain)
         gain.connect(ctx.destination)
         osc.type = 'sawtooth'
-        osc.frequency.setValueAtTime(300, ctx.currentTime)
-        osc.frequency.exponentialRampToValueAtTime(60, ctx.currentTime + 0.3)
-        gain.gain.setValueAtTime(0.3, ctx.currentTime)
-        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3)
+        osc.frequency.setValueAtTime(startFreq, ctx.currentTime)
+        osc.frequency.exponentialRampToValueAtTime(60, ctx.currentTime + duration)
+        gain.gain.setValueAtTime(vol, ctx.currentTime)
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration)
         osc.start(ctx.currentTime)
-        osc.stop(ctx.currentTime + 0.3)
+        osc.stop(ctx.currentTime + duration)
+    }
+
+    // 玩家受伤：低频短促 + 噪声
+    playPlayerHurt() {
+        this._init()
+        this._resume()
+        this._tone(100, 0.2, 'sawtooth', 0.35)
+        this._noise(0.12, 0.25)
     }
 
     // 走路脚步声：低频"咚咚"，每 stepInterval 秒触发一次

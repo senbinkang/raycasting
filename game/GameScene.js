@@ -9,6 +9,7 @@ const ENEMY_TYPES = [
     { tex: 201, speed: 1.5, hp: 100, damage: 10, score: 100 },
     { tex: 205, speed: 1.2, hp: 150, damage: 10, score: 150 },
     { tex: 204, speed: 0.6, hp: 200, damage: 10, score: 200 },
+    { tex: 206, speed: 0.8, hp: 80,  damage: 10, score: 175, ranged: true, shootInterval: 2.0 },
 ]
 
 class GameScene {
@@ -19,6 +20,11 @@ class GameScene {
         this.state = 'menu'
         this.score = 0
         this.wave = 0
+        this.waveNotifyTimer = 0
+        this.paused = false
+        this.projectiles = []
+        this.highScore = this._loadHighScore()
+        this.isNewRecord = false
 
         this.overlay = new OverlayScreen()
         this.init()
@@ -51,6 +57,10 @@ class GameScene {
         this.state = 'playing'
         this.score = 0
         this.wave = 0
+        this.waveNotifyTimer = 0
+        this.projectiles = []
+        this.highScore = this._loadHighScore()
+        this.isNewRecord = false
         this.init()
         if (this.audioManager) this.audioManager.startBgm()
     }
@@ -58,7 +68,8 @@ class GameScene {
     _spawnEnemy(cx, cy) {
         let t = ENEMY_TYPES[Math.floor(Math.random() * ENEMY_TYPES.length)]
         this.spriteManager.add(new Sprite(cx + 0.5, cy + 0.5, t.tex, {
-            type: 'enemy', speed: t.speed, hp: t.hp, damage: t.damage, score: t.score
+            type: 'enemy', speed: t.speed, hp: t.hp, damage: t.damage, score: t.score,
+            ranged: t.ranged || false, shootInterval: t.shootInterval || 2
         }))
     }
 
@@ -114,10 +125,12 @@ class GameScene {
 
     _respawnEnemies() {
         this.wave++
+        this.waveNotifyTimer = 2.0
         if (this.wave >= 5) {
             this.state = 'win'
+            this._checkHighScore()
             this.overlay.show()
-            this.overlay.drawWin()
+            this.overlay.drawWin(this.score, this.highScore, this.isNewRecord)
             return
         }
         let empties = this._findEmptyCells()
@@ -159,18 +172,69 @@ class GameScene {
         this.score += pts
     }
 
+    _loadHighScore() {
+        try {
+            let v = localStorage.getItem('raycasting_highscore')
+            return v ? parseInt(v, 10) : 0
+        } catch (_) { return 0 }
+    }
+
+    _saveHighScore() {
+        try { localStorage.setItem('raycasting_highscore', String(this.highScore)) } catch (_) {}
+    }
+
+    _checkHighScore() {
+        if (this.score > this.highScore) {
+            this.highScore = this.score
+            this.isNewRecord = true
+            this._saveHighScore()
+        } else {
+            this.isNewRecord = false
+        }
+    }
+
     // 每帧：驱动精灵更新（AI / 捡取）+ 门动画 + 死亡/通关检测
     update(dt) {
         if (this.state !== 'playing') return
 
         if (this.spriteManager) {
-            this.spriteManager.update(dt, this.player, this.bg)
+            let newProjectiles = this.spriteManager.update(dt, this.player, this.bg)
+            for (let p of newProjectiles) this.projectiles.push(p)
+        }
+        // 更新子弹
+        for (let i = this.projectiles.length - 1; i >= 0; i--) {
+            let p = this.projectiles[i]
+            p.x += p.ndx * p.speed * dt
+            p.y += p.ndy * p.speed * dt
+            // 碰墙消失
+            let mx = Math.floor(p.x), my = Math.floor(p.y)
+            if (mx < 0 || my < 0 || mx >= this.bg.columns || my >= this.bg.lines || this.bg.worldMap[my][mx] !== 0) {
+                this.projectiles.splice(i, 1)
+                continue
+            }
+            // 超出射程消失（从发射点算 10 格）
+            let odx = p.x - (p.originX !== undefined ? p.originX : p.x)
+            let ody = p.y - (p.originY !== undefined ? p.originY : p.y)
+            if (Math.sqrt(odx * odx + ody * ody) > 10) {
+                this.projectiles.splice(i, 1)
+                continue
+            }
+            // 碰玩家扣血
+            let pdx2 = p.x - this.player.position.x, pdy2 = p.y - this.player.position.y
+            let pdist = Math.sqrt(pdx2 * pdx2 + pdy2 * pdy2)
+            if (pdist < 0.5) {
+                this.player.takeDamage(p.damage || 15)
+                this.projectiles.splice(i, 1)
+            }
         }
         if (this.weapon) {
             this.weapon.update(dt)
         }
         if (this.player.invincibleTimer > 0) {
             this.player.invincibleTimer = Math.max(0, this.player.invincibleTimer - dt)
+        }
+        if (this.waveNotifyTimer > 0) {
+            this.waveNotifyTimer = Math.max(0, this.waveNotifyTimer - dt)
         }
         if (this.audioManager) {
             let moving = !!(this.game.keysdown['w'] || this.game.keysdown['s'] ||
@@ -181,8 +245,9 @@ class GameScene {
         // 死亡检测
         if (this.player.hp <= 0) {
             this.state = 'gameover'
+            this._checkHighScore()
             this.overlay.show()
-            this.overlay.drawGameover()
+            this.overlay.drawGameover(this.score, this.highScore, this.isNewRecord)
             return
         }
 
@@ -202,6 +267,7 @@ class GameScene {
             this.spriteManager.drawOnMinimap(this.game.context, this.bg.unit)
         }
         this.player.draw()
+        this.screen.projectiles = this.projectiles
         this.screen.draw()
     }
 }
