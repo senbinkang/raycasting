@@ -93,6 +93,11 @@ class Player {
         this.hp = Math.max(0, this.hp - amount)
         this.invincibleTimer = 2
         if (window.audioManager) window.audioManager.playPlayerHurt()
+        if (window.commentaryService) {
+            window.commentaryService.queue('player_hurt', {
+                damage: amount, hp: Math.ceil(this.hp), maxHp: this.maxHp
+            })
+        }
     }
 
     registerAction() {
@@ -184,6 +189,11 @@ class Player {
                 if (this.hp >= this.maxHp) continue
                 s.alive = false
                 this.hp = Math.min(this.maxHp, this.hp + 30)
+                if (window.commentaryService) {
+                    window.commentaryService.queue('health_pickup', {
+                        hp: Math.ceil(this.hp), maxHp: this.maxHp
+                    })
+                }
             }
         }
     }

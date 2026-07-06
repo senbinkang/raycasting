@@ -38,6 +38,9 @@ class Game {
             if (e.key === 'p' || e.key === 'P') {
                 if (this.scene && this.scene.state === 'playing') {
                     this.scene.paused = !this.scene.paused
+                    if (window.commentaryService) {
+                        window.commentaryService.queue(this.scene.paused ? 'pause' : 'unpause', {})
+                    }
                 }
             }
             if ((e.key === 'Enter' || e.key === ' ') && this.scene) {
@@ -165,6 +168,12 @@ class Game {
                 if (dead) {
                     if (window.audioManager) window.audioManager.playEnemyDeath(enemy.textureIndex)
                     this.scene.addScore(enemy.score || 100)
+                    if (window.commentaryService) {
+                        let remaining = this.scene.spriteManager.sprites.filter(
+                            s => s.alive && s.type === 'enemy'
+                        ).length
+                        window.commentaryService.queue('enemy_kill', { enemyType: enemy.textureIndex, remaining })
+                    }
                 } else {
                     if (window.audioManager) window.audioManager.playHit()
                 }

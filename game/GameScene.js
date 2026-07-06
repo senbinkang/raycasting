@@ -50,6 +50,9 @@ class GameScene {
         this.state = 'playing'
         this.overlay.hide()
         if (this.audioManager) this.audioManager.startBgm()
+        if (window.commentaryService) {
+            window.commentaryService.queue('game_start', {})
+        }
     }
 
     reset() {
@@ -131,6 +134,11 @@ class GameScene {
             this._checkHighScore()
             this.overlay.show()
             this.overlay.drawWin(this.score, this.highScore, this.isNewRecord)
+            if (window.commentaryService) {
+                window.commentaryService.queue('victory', {
+                    score: this.score, highScore: this.highScore, isNewRecord: this.isNewRecord
+                })
+            }
             return
         }
         let empties = this._findEmptyCells()
@@ -166,6 +174,12 @@ class GameScene {
             }))
             itemCount++
         }
+        if (window.commentaryService) {
+            window.commentaryService.queue('wave_start', {
+                wave: this.wave + 1, enemyCount: enemyCount,
+                hp: Math.ceil(this.player.hp), maxHp: this.player.maxHp, score: this.score
+            })
+        }
     }
 
     addScore(pts) {
@@ -188,6 +202,9 @@ class GameScene {
             this.highScore = this.score
             this.isNewRecord = true
             this._saveHighScore()
+            if (window.commentaryService) {
+                window.commentaryService.queue('new_record', { score: this.score })
+            }
         } else {
             this.isNewRecord = false
         }
@@ -248,14 +265,39 @@ class GameScene {
             this._checkHighScore()
             this.overlay.show()
             this.overlay.drawGameover(this.score, this.highScore, this.isNewRecord)
+            if (window.commentaryService) {
+                window.commentaryService.queue('player_death', {
+                    score: this.score, wave: this.wave + 1, highScore: this.highScore, isNewRecord: this.isNewRecord
+                })
+            }
             return
+        }
+
+        // 低血量检测
+        if (this.player.hp > 0 && this.player.hp <= 30 && this.player.hp < this.player.maxHp) {
+            if (window.commentaryService) {
+                let enemies = this.spriteManager.sprites.filter(s => s.type === 'enemy' && s.alive)
+                window.commentaryService.queue('low_hp', {
+                    hp: Math.ceil(this.player.hp), maxHp: this.player.maxHp, enemyCount: enemies.length
+                })
+            }
         }
 
         // 敌人全灭后重新生成
         let enemies = this.spriteManager.sprites.filter(s => s.type === 'enemy')
         let aliveEnemies = enemies.filter(s => s.alive)
         if (enemies.length > 0 && aliveEnemies.length === 0) {
+            if (window.commentaryService) {
+                window.commentaryService.queue('wave_clear', {
+                    wave: this.wave + 1,
+                    hp: Math.ceil(this.player.hp), maxHp: this.player.maxHp, score: this.score
+                })
+            }
             this._respawnEnemies()
+        }
+
+        if (window.commentaryService) {
+            window.commentaryService.update(dt)
         }
     }
 

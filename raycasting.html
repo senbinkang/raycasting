@@ -59,6 +59,29 @@
         </div>
     </div>
 
+    <details class="settings-panel" style="margin-top:12px;max-width:800px;background:#222;border:1px solid #333;border-radius:4px;padding:10px 16px;font-size:13px;color:#bbb;">
+        <summary style="cursor:pointer;color:#ffd640;font-weight:bold;">AI 解说设置</summary>
+        <div style="margin-top:10px;display:flex;flex-direction:column;gap:8px;">
+            <div>
+                <label>API Endpoint:</label>
+                <input id="cfg-endpoint" type="text" value="https://api.deepseek.com/v1/chat/completions" style="width:100%;background:#111;color:#ddd;border:1px solid #444;padding:4px 8px;border-radius:3px;font-size:12px;">
+            </div>
+            <div>
+                <label>API Key:</label>
+                <input id="cfg-apikey" type="password" placeholder="sk-..." style="width:100%;background:#111;color:#ddd;border:1px solid #444;padding:4px 8px;border-radius:3px;font-size:12px;">
+            </div>
+            <div>
+                <label>Model:</label>
+                <input id="cfg-model" type="text" value="deepseek-v4-pro" style="width:150px;background:#111;color:#ddd;border:1px solid #444;padding:4px 8px;border-radius:3px;font-size:12px;">
+            </div>
+            <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+                <label><input id="cfg-enabled" type="checkbox" checked> 启用解说</label>
+                <label><input id="cfg-tts" type="checkbox" checked> TTS 语音</label>
+                <label>音量: <input id="cfg-volume" type="range" min="0" max="100" value="80" style="vertical-align:middle;width:80px;"></label>
+            </div>
+        </div>
+    </details>
+
     <div class="hint">
         <b>🎮 纯键盘模式：</b><br>
         移动：<kbd>W</kbd>/<kbd>↑</kbd> 前进　<kbd>S</kbd>/<kbd>↓</kbd> 后退　<kbd>A</kbd>/<kbd>D</kbd> 左右平移<br>
@@ -86,6 +109,7 @@
     <script src="game/SpriteManager.js"></script>
     <script src="game/Screen.js"></script>
     <script src="game/AudioManager.js"></script>
+    <script src="game/CommentaryService.js"></script>
     <script src="game/Weapon.js"></script>
     <script src="game/Game.js"></script>
     <script src="game/OverlayScreen.js"></script>
