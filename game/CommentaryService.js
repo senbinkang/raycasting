@@ -1,13 +1,13 @@
 // CommentaryService.js
 // AI 实时解说服务：事件队列 → LLM 文本生成（模板兜底）→ TTS 语音播放
+// 支持两种 TTS：浏览器内置 SpeechSynthesis / 小米 MiMo 语音克隆
 // 挂到 window.commentaryService
 
-const SYSTEM_PROMPT = `你是一个幽默吐槽风格的实时游戏解说员，为一个第一人称射击游戏（类似 Wolfenstein 3D）做解说。
+const SYSTEM_PROMPT = `你是一个捧哏风格的实时游戏解说员，像一个损友在旁边接话茬。为一个第一人称射击游戏做解说。
 
 规则：
 - 用中文，1-2 句话，不超过 40 字
-- 毒舌但友善，像损友在旁边吐槽
-- 根据事件类型调整语气：击杀时夸一下，受伤时损一下，关键时刻紧张一下
+- 语气像相声捧哏：短促、接话、垫话、吐槽，比如"嚯！""得，又挨一下""你管这叫枪法？"
 - 不要每次都说一样的套话
 - 不要用"玩家"来称呼，用"你"直接对玩家说话
 - 不要加引号、动作描述或任何格式标记，只输出纯解说文本`
@@ -72,10 +72,16 @@ class CommentaryService {
         this.enabled = true
         this.ttsEnabled = true
         this.ttsVolume = 0.8
+        this.ttsProvider = "mimo"
         this._eventQueue = []
         this.cooldowns = {}
         this._speaking = false
+        this._busy = false
         this._pendingLLM = null
+        this._currentAudio = null
+        this._abortController = null
+        this._speechResolve = null
+        this._genId = 0
     }
 
     queue(eventType, context = {}) {
@@ -92,15 +98,14 @@ class CommentaryService {
         if (this._pendingLLM === eventType) return
 
         this._eventQueue.push({ type: eventType, context, priority: rule.priority, useLLM: rule.useLLM })
-        this._eventQueue.sort((a, b) => a.priority - b.priority)
     }
 
     update(_dt) {
         if (this._eventQueue.length === 0) return
+        if (this._busy) return
         if (this._speaking) {
-            if (this._eventQueue[0].priority === 0) {
-                speechSynthesis.cancel()
-                this._speaking = false
+            if (this._eventQueue.some(e => e.priority === 0)) {
+                this._stopCurrentSpeech()
             } else {
                 return
             }
@@ -108,15 +113,49 @@ class CommentaryService {
         this._processNext()
     }
 
+    _stopCurrentSpeech() {
+        this._genId++
+        this._speaking = false
+        speechSynthesis.cancel()
+        if (this._currentAudio) {
+            this._currentAudio.pause()
+            this._currentAudio.src = ""
+            this._currentAudio = null
+        }
+        if (this._abortController) {
+            this._abortController.abort()
+            this._abortController = null
+        }
+        if (this._speechResolve) {
+            this._speechResolve()
+            this._speechResolve = null
+        }
+    }
+
     async _processNext() {
         if (this._eventQueue.length === 0) return
-        const event = this._eventQueue.shift()
+        if (this._busy) return
+        if (this._speaking) return
+
+        const genId = ++this._genId
+        this._busy = true
+
+        // 只播最新一条，丢弃之前排队的（保证实时感）
+        const event = this._eventQueue.pop()
+        this._eventQueue.length = 0
 
         this.cooldowns[event.type] = performance.now() / 1000
 
         const text = await this._generateText(event.type, event.context)
-        if (text) this._speak(text)
-        else this._processNext()
+        if (genId !== this._genId) return
+        this._busy = false
+
+        if (text) {
+            await this._doSpeak(text)
+        }
+        if (genId !== this._genId) return
+
+        if (this._eventQueue.length > 0) this._processNext()
     }
 
     async _generateText(eventType, context) {
@@ -154,7 +193,7 @@ class CommentaryService {
                     "Authorization": `Bearer ${config.apiKey}`
                 },
                 body: JSON.stringify({
-                    model: config.model || "gpt-3.5-turbo",
+                    model: config.model || "deepseek-v4-pro",
                     messages: [
                         { role: "system", content: SYSTEM_PROMPT },
                         { role: "user", content: prompt }
@@ -173,25 +212,110 @@ class CommentaryService {
         }
     }
 
-    _speak(text) {
-        if (!text) { this._processNext(); return }
-        if (!this.ttsEnabled) { this._processNext(); return }
+    async _doSpeak(text) {
+        if (!text) return
+        if (!this.ttsEnabled) return
 
-        const voices = speechSynthesis.getVoices()
-        const zhVoice = voices.find(v => v.lang.startsWith("zh-CN")) ||
-                        voices.find(v => v.lang.startsWith("zh"))
+        if (this.ttsProvider === "mimo") {
+            this._speaking = true
+            const ok = await this._speakMimo(text)
+            if (!ok) this._speaking = false
+        } else {
+            this._speaking = true
+            await this._speakBrowserAsync(text)
+        }
+    }
 
-        const utter = new SpeechSynthesisUtterance(text)
-        utter.lang = "zh-CN"
-        utter.rate = 1.05
-        utter.pitch = 1.0
-        utter.volume = this.ttsVolume
-        if (zhVoice) utter.voice = zhVoice
+    _speakBrowserAsync(text) {
+        return new Promise((resolve) => {
+            const voices = speechSynthesis.getVoices()
+            const zhVoice = voices.find(v => v.lang.startsWith("zh-CN")) ||
+                            voices.find(v => v.lang.startsWith("zh"))
 
-        this._speaking = true
-        utter.onend = () => { this._speaking = false; this._processNext() }
-        utter.onerror = () => { this._speaking = false; this._processNext() }
-        speechSynthesis.speak(utter)
+            const utter = new SpeechSynthesisUtterance(text)
+            utter.lang = "zh-CN"
+            utter.rate = 1.05
+            utter.pitch = 1.0
+            utter.volume = this.ttsVolume
+            if (zhVoice) utter.voice = zhVoice
+
+            const done = () => {
+                this._speaking = false
+                this._speechResolve = null
+                resolve()
+            }
+            this._speechResolve = done
+            utter.onend = done
+            utter.onerror = done
+            speechSynthesis.speak(utter)
+        })
+    }
+
+    async _speakMimo(text) {
+        const config = this.loadConfig()
+        const voiceBase64 = this._loadVoiceSample()
+        if (!config.mimoApiKey || !voiceBase64) return false
+
+        try {
+            this._abortController = new AbortController()
+            const timeout = setTimeout(() => this._abortController.abort(), 5000)
+
+            const resp = await fetch("https://api.xiaomimimo.com/v1/chat/completions", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "api-key": config.mimoApiKey
+                },
+                body: JSON.stringify({
+                    model: "mimo-v2.5-tts-voiceclone",
+                    messages: [
+                        { role: "assistant", content: text }
+                    ],
+                    audio: {
+                        voice: `data:audio/wav;base64,${voiceBase64}`,
+                        format: "wav"
+                    }
+                }),
+                signal: this._abortController.signal
+            })
+            clearTimeout(timeout)
+            this._abortController = null
+
+            const data = await resp.json()
+            const audioBase64 = data.choices?.[0]?.message?.audio?.data
+            if (!audioBase64) return false
+
+            await this._playAudioBase64(audioBase64)
+            return true
+        } catch (_e) {
+            this._abortController = null
+            return false
+        }
+    }
+
+    _loadVoiceSample() {
+        try { return localStorage.getItem("commentary_voice_sample") || "" }
+        catch (_) { return "" }
+    }
+
+    async _playAudioBase64(base64) {
+        return new Promise((resolve) => {
+            const audio = new Audio()
+            audio.src = `data:audio/wav;base64,${base64}`
+            audio.volume = this.ttsVolume
+            this._currentAudio = audio
+
+            const done = () => {
+                if (this._currentAudio === audio) this._currentAudio = null
+                this._speaking = false
+                this._speechResolve = null
+                resolve()
+            }
+            this._speechResolve = done
+            audio.onended = done
+            audio.onerror = done
+            audio.play().catch(done)
+        })
     }
 
     loadConfig() {
@@ -201,7 +325,7 @@ class CommentaryService {
 
     saveConfig(config) {
         try { localStorage.setItem("commentary_config", JSON.stringify(config)) }
-        catch (_) { /* quota exceeded, ignore */ }
+        catch (_) {}
     }
 
     initUI() {
@@ -213,6 +337,10 @@ class CommentaryService {
         const ttsEl = document.getElementById("cfg-tts")
         const volumeEl = document.getElementById("cfg-volume")
         const enabledEl = document.getElementById("cfg-enabled")
+        const providerEl = document.getElementById("cfg-tts-provider")
+        const mimoKeyEl = document.getElementById("cfg-mimo-key")
+        const voiceStatusEl = document.getElementById("cfg-voice-status")
+        const voiceInputEl = document.getElementById("cfg-voice-input")
 
         if (endpointEl) endpointEl.value = cfg.endpoint || "https://api.deepseek.com/v1/chat/completions"
         if (apikeyEl) apikeyEl.value = cfg.apiKey || ""
@@ -220,24 +348,43 @@ class CommentaryService {
         if (ttsEl) ttsEl.checked = cfg.ttsEnabled !== false
         if (volumeEl) volumeEl.value = (cfg.ttsVolume !== undefined ? cfg.ttsVolume : 0.8) * 100
         if (enabledEl) enabledEl.checked = cfg.commentaryEnabled !== false
+        if (providerEl) providerEl.value = cfg.ttsProvider || "mimo"
+        if (mimoKeyEl) mimoKeyEl.value = cfg.mimoApiKey || ""
 
         this.enabled = cfg.commentaryEnabled !== false
         this.ttsEnabled = cfg.ttsEnabled !== false
         this.ttsVolume = cfg.ttsVolume !== undefined ? cfg.ttsVolume : 0.8
+        this.ttsProvider = cfg.ttsProvider || "mimo"
+
+        this._updateVoiceStatus(voiceStatusEl)
+
+        if (providerEl) {
+            providerEl.addEventListener("change", () => {
+                this.ttsProvider = providerEl.value
+                const c = this.loadConfig()
+                c.ttsProvider = providerEl.value
+                this.saveConfig(c)
+                this._toggleMimoFields()
+            })
+            this._toggleMimoFields()
+        }
 
         const save = () => {
             const newCfg = {
                 endpoint: endpointEl?.value || "",
                 apiKey: apikeyEl?.value || "",
-                model: modelEl?.value || "gpt-3.5-turbo",
+                model: modelEl?.value || "deepseek-v4-pro",
                 ttsEnabled: ttsEl?.checked ?? true,
                 ttsVolume: (parseInt(volumeEl?.value) || 80) / 100,
                 commentaryEnabled: enabledEl?.checked ?? true,
+                ttsProvider: providerEl?.value || "mimo",
+                mimoApiKey: mimoKeyEl?.value || "",
             }
             this.saveConfig(newCfg)
             this.enabled = newCfg.commentaryEnabled
             this.ttsEnabled = newCfg.ttsEnabled
             this.ttsVolume = newCfg.ttsVolume
+            this.ttsProvider = newCfg.ttsProvider
         }
 
         endpointEl?.addEventListener("input", save)
@@ -246,6 +393,34 @@ class CommentaryService {
         ttsEl?.addEventListener("change", save)
         volumeEl?.addEventListener("input", save)
         enabledEl?.addEventListener("change", save)
+        mimoKeyEl?.addEventListener("input", save)
+
+        if (voiceInputEl) {
+            voiceInputEl.addEventListener("change", () => {
+                const file = voiceInputEl.files[0]
+                if (!file) return
+                const reader = new FileReader()
+                reader.onload = () => {
+                    const base64 = reader.result.split(",")[1]
+                    try { localStorage.setItem("commentary_voice_sample", base64) }
+                    catch (_) { alert("语音样本太大，请用更短的音频（<3MB）") }
+                    this._updateVoiceStatus(voiceStatusEl)
+                }
+                reader.readAsDataURL(file)
+            })
+        }
+    }
+
+    _toggleMimoFields() {
+        const row = document.getElementById("cfg-mimo-row")
+        if (row) row.style.display = this.ttsProvider === "mimo" ? "" : "none"
+    }
+
+    _updateVoiceStatus(el) {
+        if (!el) return
+        const hasSample = !!this._loadVoiceSample()
+        el.textContent = hasSample ? "已加载" : "未上传"
+        el.style.color = hasSample ? "#5f5" : "#f55"
     }
 }
 

@@ -59,24 +59,41 @@
         </div>
     </div>
 
-    <details class="settings-panel" style="margin-top:12px;max-width:800px;background:#222;border:1px solid #333;border-radius:4px;padding:10px 16px;font-size:13px;color:#bbb;">
+    <details class="settings-panel" open style="margin-top:12px;max-width:800px;background:#222;border:1px solid #333;border-radius:4px;padding:10px 16px;font-size:13px;color:#bbb;">
         <summary style="cursor:pointer;color:#ffd640;font-weight:bold;">AI 解说设置</summary>
         <div style="margin-top:10px;display:flex;flex-direction:column;gap:8px;">
             <div>
-                <label>API Endpoint:</label>
+                <label>LLM API Endpoint:</label>
                 <input id="cfg-endpoint" type="text" value="https://api.deepseek.com/v1/chat/completions" style="width:100%;background:#111;color:#ddd;border:1px solid #444;padding:4px 8px;border-radius:3px;font-size:12px;">
             </div>
             <div>
-                <label>API Key:</label>
+                <label>LLM API Key:</label>
                 <input id="cfg-apikey" type="password" placeholder="sk-..." style="width:100%;background:#111;color:#ddd;border:1px solid #444;padding:4px 8px;border-radius:3px;font-size:12px;">
             </div>
             <div>
-                <label>Model:</label>
+                <label>LLM Model:</label>
                 <input id="cfg-model" type="text" value="deepseek-v4-pro" style="width:150px;background:#111;color:#ddd;border:1px solid #444;padding:4px 8px;border-radius:3px;font-size:12px;">
+            </div>
+            <div>
+                <label>TTS 引擎:</label>
+                <select id="cfg-tts-provider" style="background:#111;color:#ddd;border:1px solid #444;padding:4px 8px;border-radius:3px;font-size:12px;">
+                    <option value="mimo">MiMo 语音克隆（于谦）</option>
+                    <option value="browser">浏览器内置</option>
+                </select>
+            </div>
+            <div id="cfg-mimo-row" style="display:none;flex-direction:column;gap:8px;">
+                <div>
+                    <label>MiMo API Key:</label>
+                    <input id="cfg-mimo-key" type="password" placeholder="sk-..." style="width:100%;background:#111;color:#ddd;border:1px solid #444;padding:4px 8px;border-radius:3px;font-size:12px;">
+                </div>
+                <div>
+                    <label>语音样本: <span id="cfg-voice-status" style="color:#f55;">未上传</span></label>
+                    <input id="cfg-voice-input" type="file" accept="audio/wav,audio/m4a,audio/mp3" style="font-size:12px;color:#bbb;">
+                </div>
             </div>
             <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
                 <label><input id="cfg-enabled" type="checkbox" checked> 启用解说</label>
-                <label><input id="cfg-tts" type="checkbox" checked> TTS 语音</label>
+                <label><input id="cfg-tts" type="checkbox" checked> 启用语音</label>
                 <label>音量: <input id="cfg-volume" type="range" min="0" max="100" value="80" style="vertical-align:middle;width:80px;"></label>
             </div>
         </div>
