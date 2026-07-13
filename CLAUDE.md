@@ -23,6 +23,12 @@
 - 指向已有实现比从零描述更精确
 - 实现阶段保持整洁：不要多余注释，不要 jsdoc，严格类型
 
+## Git 操作限制
+
+- 可以：`git status`、`git diff`、`git log`、生成 commit message
+- 禁止（除非我明确说"git add"或"git commit"）：`git add`、`git rm`、`git commit`、`git reset`、`git checkout`、`git stash` 等任何修改 git 状态的操作
+- 只有我明确让你暂存或提交时，你才能动 git
+
 ## 开始时
 
 先读 `doc/_active/0-项目总览.md` 和 `doc/_active/1-未来方向.md` 了解项目进度，避免重复或冲突。

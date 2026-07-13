@@ -82,6 +82,7 @@ class CommentaryService {
         this._abortController = null
         this._speechResolve = null
         this._genId = 0
+        this._audioCache = new Map(Object.entries(window.__COMMENTARY_AUDIO_CACHE__ || {}))
     }
 
     queue(eventType, context = {}) {
@@ -151,7 +152,7 @@ class CommentaryService {
         this._busy = false
 
         if (text) {
-            await this._doSpeak(text)
+            await this._doSpeak(text, event.type)
         }
         if (genId !== this._genId) return
 
@@ -212,14 +213,30 @@ class CommentaryService {
         }
     }
 
-    async _doSpeak(text) {
+    async _doSpeak(text, eventType) {
         if (!text) return
         if (!this.ttsEnabled) return
+
+        const rule = EVENT_RULES[eventType]
+        const isTemplate = rule && !rule.useLLM
+
+        if (isTemplate) {
+            const cached = this._audioCache.get(text)
+            if (cached) {
+                this._speaking = true
+                await this._playAudioBase64(cached)
+                return
+            }
+        }
 
         if (this.ttsProvider === "mimo") {
             this._speaking = true
             const ok = await this._speakMimo(text)
-            if (!ok) this._speaking = false
+            if (!ok) {
+                this._speaking = false
+                this._speaking = true
+                await this._speakBrowserAsync(text)
+            }
         } else {
             this._speaking = true
             await this._speakBrowserAsync(text)
@@ -294,8 +311,11 @@ class CommentaryService {
     }
 
     _loadVoiceSample() {
-        try { return localStorage.getItem("commentary_voice_sample") || "" }
-        catch (_) { return "" }
+        try {
+            const userSample = localStorage.getItem("commentary_voice_sample")
+            if (userSample) return userSample
+        } catch (_) {}
+        return window.__COMMENTARY_VOICE_SAMPLE__ || ""
     }
 
     async _playAudioBase64(base64) {
@@ -340,7 +360,6 @@ class CommentaryService {
         const providerEl = document.getElementById("cfg-tts-provider")
         const mimoKeyEl = document.getElementById("cfg-mimo-key")
         const voiceStatusEl = document.getElementById("cfg-voice-status")
-        const voiceInputEl = document.getElementById("cfg-voice-input")
 
         if (endpointEl) endpointEl.value = cfg.endpoint || "https://api.deepseek.com/v1/chat/completions"
         if (apikeyEl) apikeyEl.value = cfg.apiKey || ""
@@ -394,21 +413,6 @@ class CommentaryService {
         volumeEl?.addEventListener("input", save)
         enabledEl?.addEventListener("change", save)
         mimoKeyEl?.addEventListener("input", save)
-
-        if (voiceInputEl) {
-            voiceInputEl.addEventListener("change", () => {
-                const file = voiceInputEl.files[0]
-                if (!file) return
-                const reader = new FileReader()
-                reader.onload = () => {
-                    const base64 = reader.result.split(",")[1]
-                    try { localStorage.setItem("commentary_voice_sample", base64) }
-                    catch (_) { alert("语音样本太大，请用更短的音频（<3MB）") }
-                    this._updateVoiceStatus(voiceStatusEl)
-                }
-                reader.readAsDataURL(file)
-            })
-        }
     }
 
     _toggleMimoFields() {
@@ -418,9 +422,12 @@ class CommentaryService {
 
     _updateVoiceStatus(el) {
         if (!el) return
-        const hasSample = !!this._loadVoiceSample()
-        el.textContent = hasSample ? "已加载" : "未上传"
-        el.style.color = hasSample ? "#5f5" : "#f55"
+        const hasUserSample = (() => {
+            try { return !!localStorage.getItem("commentary_voice_sample") }
+            catch (_) { return false }
+        })()
+        el.textContent = hasUserSample ? "已自定义" : "已内置（于谦）"
+        el.style.color = "#5f5"
     }
 }
 
