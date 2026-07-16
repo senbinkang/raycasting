@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+          content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Raycasting — Wolfenstein 风格伪 3D 引擎</title>
+  <script type="module" crossorigin src="/assets/main-o6NSg36B.js"></script>
+  <link rel="stylesheet" crossorigin href="/assets/main-D5SKKQmz.css">
+</head>
+<body>
+    <h2>Raycasting — Wolfenstein 风格伪 3D 引擎（武器+音效+门 完成版）</h2>
+    <div class="wrap">
+        <div>
+            <canvas id="id-canvas" width="400" height="400"></canvas>
+        </div>
+        <div style="position:relative">
+            <canvas id="id-canvas-image" width="640" height="400"></canvas>
+            <canvas id="id-canvas-overlay" width="640" height="400" style="position:absolute;left:0;top:0;pointer-events:none"></canvas>
+        </div>
+    </div>
+
+    <details class="settings-panel" open style="margin-top:12px;max-width:800px;background:#222;border:1px solid #333;border-radius:4px;padding:10px 16px;font-size:13px;color:#bbb;">
+        <summary style="cursor:pointer;color:#ffd640;font-weight:bold;">AI 解说设置</summary>
+        <div style="margin-top:10px;display:flex;flex-direction:column;gap:8px;">
+            <div>
+                <label>LLM API Endpoint:</label>
+                <input id="cfg-endpoint" type="text" value="https://api.deepseek.com/v1/chat/completions" style="width:100%;background:#111;color:#ddd;border:1px solid #444;padding:4px 8px;border-radius:3px;font-size:12px;">
+            </div>
+            <div>
+                <label>LLM API Key:</label>
+                <input id="cfg-apikey" type="password" placeholder="sk-..." style="width:100%;background:#111;color:#ddd;border:1px solid #444;padding:4px 8px;border-radius:3px;font-size:12px;">
+            </div>
+            <div>
+                <label>LLM Model:</label>
+                <input id="cfg-model" type="text" value="deepseek-v4-pro" style="width:150px;background:#111;color:#ddd;border:1px solid #444;padding:4px 8px;border-radius:3px;font-size:12px;">
+            </div>
+            <div>
+                <label>TTS 引擎:</label>
+                <select id="cfg-tts-provider" style="background:#111;color:#ddd;border:1px solid #444;padding:4px 8px;border-radius:3px;font-size:12px;">
+                    <option value="mimo">MiMo 语音克隆（于谦）</option>
+                    <option value="browser">浏览器内置</option>
+                </select>
+            </div>
+            <div id="cfg-mimo-row" style="display:none;flex-direction:column;gap:8px;">
+                <div>
+                    <label>MiMo API Key:</label>
+                    <input id="cfg-mimo-key" type="password" placeholder="sk-..." style="width:100%;background:#111;color:#ddd;border:1px solid #444;padding:4px 8px;border-radius:3px;font-size:12px;">
+                </div>
+                <div>
+                    <label>语音样本: <span id="cfg-voice-status" style="color:#5f5;">已内置（于谦）</span></label>
+                </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+                <label><input id="cfg-enabled" type="checkbox" checked> 启用解说</label>
+                <label><input id="cfg-tts" type="checkbox" checked> 启用语音</label>
+                <label>音量: <input id="cfg-volume" type="range" min="0" max="100" value="80" style="vertical-align:middle;width:80px;"></label>
+            </div>
+        </div>
+    </details>
+
+    <div class="hint">
+        <b>🎮 纯键盘模式：</b><br>
+        移动：<kbd>W</kbd>/<kbd>↑</kbd> 前进　<kbd>S</kbd>/<kbd>↓</kbd> 后退　<kbd>A</kbd>/<kbd>D</kbd> 左右平移<br>
+        旋转：<kbd>←</kbd> 左转　<kbd>→</kbd> 右转<br>
+        射击：<kbd>Space</kbd>　｜　加速：<kbd>Shift</kbd><br>
+        <br>
+        <b>🖱 键盘 + 鼠标模式：</b><br>
+        移动：<kbd>W</kbd>/<kbd>↑</kbd> 前进　<kbd>S</kbd>/<kbd>↓</kbd> 后退　<kbd>A</kbd>/<kbd>D</kbd> 左右平移<br>
+        视角：<kbd>点击 3D 画面</kbd> 锁定鼠标，移动鼠标旋转视角（<kbd>Esc</kbd> 解除）<br>
+        射击：<kbd>鼠标左键</kbd> 或 <kbd>Space</kbd>　｜　加速：<kbd>Shift</kbd><br>
+        <br>
+        开始/重开：<kbd>Enter</kbd> / <kbd>Space</kbd> / <kbd>点击画面</kbd><br>
+        物品：<span style="color:#ffd640">黄色方块</span>（医疗包）自动拾取回血<br>
+        敌人：4 种——<span style="color:#ff5050">红色普通</span>/<span style="color:#ff8c28">橙色快速</span>/<span style="color:#8c32c8">紫色坦克</span>/<span style="color:#32c8c8">青色幽灵</span>，靠近扣血，消灭得分<br>
+        <br>
+        <b>规则：</b>5 波通关　｜　标准 DDA + 鱼眼校正　｜　程序化墙面纹理　｜　地板/天花板纹理投射　｜　雾效 + 手电筒　｜　小地图实时显示墙体/玩家/敌人/射线
+    </div>
+
+</body>
+</html>
