@@ -1,18 +1,21 @@
-// game/GameScene.js
-// 组合 Background（地图）+ Player（玩家）+ Screen（3D 视图）+
-//       TextureManager（程序化纹理）+ SpriteManager（精灵管理）+
-//       AudioManager（音效）+ Weapon（武器射击）
-// 形成一个完整可玩的场景。
+import { Background } from '../engine/Background.js'
+import { TextureManager } from '../engine/TextureManager.js'
+import { Player } from '../engine/Player.js'
+import { Screen } from '../engine/Screen.js'
+import { SpriteManager } from './SpriteManager.js'
+import { Sprite } from './Sprite.js'
+import { Weapon } from './Weapon.js'
+import { OverlayScreen } from '../ui/OverlayScreen.js'
 
 const ENEMY_TYPES = [
-    { tex: 203, speed: 3.0, hp: 50,  damage: 10, score: 50 },
+    { tex: 203, speed: 3.0, hp: 50, damage: 10, score: 50 },
     { tex: 201, speed: 1.5, hp: 100, damage: 10, score: 100 },
     { tex: 205, speed: 1.2, hp: 150, damage: 10, score: 150 },
     { tex: 204, speed: 0.6, hp: 200, damage: 10, score: 200 },
-    { tex: 206, speed: 0.8, hp: 80,  damage: 10, score: 175, ranged: true, shootInterval: 2.0 },
+    { tex: 206, speed: 0.8, hp: 80, damage: 10, score: 175, ranged: true, shootInterval: 2.0 },
 ]
 
-class GameScene {
+export class GameScene {
     constructor(game) {
         this.game = game
         this.height = game.canvas.height
@@ -33,7 +36,7 @@ class GameScene {
     }
 
     init() {
-        let g = this.game
+        const g = this.game
 
         this.bg = new Background(g)
         this.textureManager = new TextureManager()
@@ -49,7 +52,7 @@ class GameScene {
     startGame() {
         this.state = 'playing'
         this.overlay.hide()
-        if (this.audioManager) this.audioManager.startBgm()
+        if (this.audioManager) { this.audioManager.startBgm() }
         if (window.commentaryService) {
             window.commentaryService.queue('game_start', {})
         }
@@ -65,34 +68,41 @@ class GameScene {
         this.highScore = this._loadHighScore()
         this.isNewRecord = false
         this.init()
-        if (this.audioManager) this.audioManager.startBgm()
+        if (this.audioManager) { this.audioManager.startBgm() }
     }
 
     _spawnEnemy(cx, cy) {
-        let t = ENEMY_TYPES[Math.floor(Math.random() * ENEMY_TYPES.length)]
-        this.spriteManager.add(new Sprite(cx + 0.5, cy + 0.5, t.tex, {
-            type: 'enemy', speed: t.speed, hp: t.hp, damage: t.damage, score: t.score,
-            ranged: t.ranged || false, shootInterval: t.shootInterval || 2
-        }))
+        const t = ENEMY_TYPES[Math.floor(Math.random() * ENEMY_TYPES.length)]
+        this.spriteManager.add(
+            new Sprite(cx + 0.5, cy + 0.5, t.tex, {
+                type: 'enemy',
+                speed: t.speed,
+                hp: t.hp,
+                damage: t.damage,
+                score: t.score,
+                ranged: t.ranged || false,
+                shootInterval: t.shootInterval || 2,
+            })
+        )
     }
 
     _placeSprites() {
         const empties = this._findEmptyCells()
         for (let i = empties.length - 1; i > 0; i--) {
-            let j = Math.floor(Math.random() * (i + 1))
+            const j = Math.floor(Math.random() * (i + 1))
             ;[empties[i], empties[j]] = [empties[j], empties[i]]
         }
         let enemyCount = 0
         let itemCount = 0
-        let enemyPositions = []
+        const enemyPositions = []
         const playerStartX = Math.floor(this.bg.columns / 2) + 0.5
         const playerStartY = Math.floor(this.bg.lines / 2) + 0.5
 
-        for (let [cx, cy] of empties) {
-            let dx = cx + 0.5 - playerStartX
-            let dy = cy + 0.5 - playerStartY
-            let dist = Math.sqrt(dx * dx + dy * dy)
-            if (dist < 1.5) continue
+        for (const [cx, cy] of empties) {
+            const dx = cx + 0.5 - playerStartX
+            const dy = cy + 0.5 - playerStartY
+            const dist = Math.sqrt(dx * dx + dy * dy)
+            if (dist < 1.5) { continue }
 
             if (enemyCount < 4) {
                 this._spawnEnemy(cx, cy)
@@ -100,18 +110,22 @@ class GameScene {
                 enemyCount++
             } else if (itemCount < 5) {
                 let tooClose = false
-                for (let [ex, ey] of enemyPositions) {
+                for (const [ex, ey] of enemyPositions) {
                     if (Math.abs(cx - ex) <= 1 && Math.abs(cy - ey) <= 1) {
-                        tooClose = true; break
+                        tooClose = true
+                        break
                     }
                 }
-                if (tooClose) continue
-                this.spriteManager.add(new Sprite(cx + 0.5, cy + 0.5, 202, {
-                    type: 'item', isPickable: true
-                }))
+                if (tooClose) { continue }
+                this.spriteManager.add(
+                    new Sprite(cx + 0.5, cy + 0.5, 202, {
+                        type: 'item',
+                        isPickable: true,
+                    })
+                )
                 itemCount++
             }
-            if (enemyCount >= 4 && itemCount >= 5) break
+            if (enemyCount >= 4 && itemCount >= 5) { break }
         }
     }
 
@@ -120,7 +134,7 @@ class GameScene {
         const wm = this.bg.worldMap
         for (let y = 0; y < this.bg.lines; y++) {
             for (let x = 0; x < this.bg.columns; x++) {
-                if (wm[y][x] === 0) result.push([x, y])
+                if (wm[y][x] === 0) { result.push([x, y]) }
             }
         }
         return result
@@ -136,48 +150,58 @@ class GameScene {
             this.overlay.drawWin(this.score, this.highScore, this.isNewRecord)
             if (window.commentaryService) {
                 window.commentaryService.queue('victory', {
-                    score: this.score, highScore: this.highScore, isNewRecord: this.isNewRecord
+                    score: this.score,
+                    highScore: this.highScore,
+                    isNewRecord: this.isNewRecord,
                 })
             }
             return
         }
         let empties = this._findEmptyCells()
-        let px = this.player.position.x, py = this.player.position.y
+        const px = this.player.position.x,
+            py = this.player.position.y
         empties = empties.filter(([cx, cy]) => {
-            let dx = cx + 0.5 - px, dy = cy + 0.5 - py
+            const dx = cx + 0.5 - px,
+                dy = cy + 0.5 - py
             return Math.sqrt(dx * dx + dy * dy) > 2
         })
         for (let i = empties.length - 1; i > 0; i--) {
-            let j = Math.floor(Math.random() * (i + 1))
+            const j = Math.floor(Math.random() * (i + 1))
             ;[empties[i], empties[j]] = [empties[j], empties[i]]
         }
-        let enemyCount = Math.min(4 + this.wave, empties.length)
-        let enemyPositions = []
+        const enemyCount = Math.min(4 + this.wave, empties.length)
+        const enemyPositions = []
         for (let i = 0; i < enemyCount; i++) {
-            let [cx, cy] = empties[i]
+            const [cx, cy] = empties[i]
             this._spawnEnemy(cx, cy)
             enemyPositions.push([cx, cy])
         }
-        // 放 3 个医疗包，排除敌人周围 1 格
         let itemCount = 0
         for (let i = enemyCount; i < empties.length && itemCount < 3; i++) {
-            let [cx, cy] = empties[i]
+            const [cx, cy] = empties[i]
             let tooClose = false
-            for (let [ex, ey] of enemyPositions) {
+            for (const [ex, ey] of enemyPositions) {
                 if (Math.abs(cx - ex) <= 1 && Math.abs(cy - ey) <= 1) {
-                    tooClose = true; break
+                    tooClose = true
+                    break
                 }
             }
-            if (tooClose) continue
-            this.spriteManager.add(new Sprite(cx + 0.5, cy + 0.5, 202, {
-                type: 'item', isPickable: true
-            }))
+            if (tooClose) { continue }
+            this.spriteManager.add(
+                new Sprite(cx + 0.5, cy + 0.5, 202, {
+                    type: 'item',
+                    isPickable: true,
+                })
+            )
             itemCount++
         }
         if (window.commentaryService) {
             window.commentaryService.queue('wave_start', {
-                wave: this.wave + 1, enemyCount: enemyCount,
-                hp: Math.ceil(this.player.hp), maxHp: this.player.maxHp, score: this.score
+                wave: this.wave + 1,
+                enemyCount: enemyCount,
+                hp: Math.ceil(this.player.hp),
+                maxHp: this.player.maxHp,
+                score: this.score,
             })
         }
     }
@@ -188,13 +212,17 @@ class GameScene {
 
     _loadHighScore() {
         try {
-            let v = localStorage.getItem('raycasting_highscore')
+            const v = localStorage.getItem('raycasting_highscore')
             return v ? parseInt(v, 10) : 0
-        } catch (_) { return 0 }
+        } catch (_) { /* ignore */
+            return 0
+        }
     }
 
     _saveHighScore() {
-        try { localStorage.setItem('raycasting_highscore', String(this.highScore)) } catch (_) {}
+        try {
+            localStorage.setItem('raycasting_highscore', String(this.highScore))
+        } catch (_) { /* ignore */ }
     }
 
     _checkHighScore() {
@@ -210,35 +238,38 @@ class GameScene {
         }
     }
 
-    // 每帧：驱动精灵更新（AI / 捡取）+ 门动画 + 死亡/通关检测
     update(dt) {
-        if (this.state !== 'playing') return
+        if (this.state !== 'playing') { return }
 
         if (this.spriteManager) {
-            let newProjectiles = this.spriteManager.update(dt, this.player, this.bg)
-            for (let p of newProjectiles) this.projectiles.push(p)
+            const newProjectiles = this.spriteManager.update(dt, this.player, this.bg)
+            for (const p of newProjectiles) { this.projectiles.push(p) }
         }
-        // 更新子弹
         for (let i = this.projectiles.length - 1; i >= 0; i--) {
-            let p = this.projectiles[i]
+            const p = this.projectiles[i]
             p.x += p.ndx * p.speed * dt
             p.y += p.ndy * p.speed * dt
-            // 碰墙消失
-            let mx = Math.floor(p.x), my = Math.floor(p.y)
-            if (mx < 0 || my < 0 || mx >= this.bg.columns || my >= this.bg.lines || this.bg.worldMap[my][mx] !== 0) {
+            const mx = Math.floor(p.x),
+                my = Math.floor(p.y)
+            if (
+                mx < 0 ||
+                my < 0 ||
+                mx >= this.bg.columns ||
+                my >= this.bg.lines ||
+                this.bg.worldMap[my][mx] !== 0
+            ) {
                 this.projectiles.splice(i, 1)
                 continue
             }
-            // 超出射程消失（从发射点算 10 格）
-            let odx = p.x - (p.originX !== undefined ? p.originX : p.x)
-            let ody = p.y - (p.originY !== undefined ? p.originY : p.y)
+            const odx = p.x - (p.originX !== undefined ? p.originX : p.x)
+            const ody = p.y - (p.originY !== undefined ? p.originY : p.y)
             if (Math.sqrt(odx * odx + ody * ody) > 10) {
                 this.projectiles.splice(i, 1)
                 continue
             }
-            // 碰玩家扣血
-            let pdx2 = p.x - this.player.position.x, pdy2 = p.y - this.player.position.y
-            let pdist = Math.sqrt(pdx2 * pdx2 + pdy2 * pdy2)
+            const pdx2 = p.x - this.player.position.x,
+                pdy2 = p.y - this.player.position.y
+            const pdist = Math.sqrt(pdx2 * pdx2 + pdy2 * pdy2)
             if (pdist < 0.5) {
                 this.player.takeDamage(p.damage || 15)
                 this.projectiles.splice(i, 1)
@@ -254,12 +285,15 @@ class GameScene {
             this.waveNotifyTimer = Math.max(0, this.waveNotifyTimer - dt)
         }
         if (this.audioManager) {
-            let moving = !!(this.game.keysdown['w'] || this.game.keysdown['s'] ||
-                          this.game.keysdown['a'] || this.game.keysdown['d'])
+            const moving = !!(
+                this.game.keysdown['w'] ||
+                this.game.keysdown['s'] ||
+                this.game.keysdown['a'] ||
+                this.game.keysdown['d']
+            )
             this.audioManager.updateStep(dt, moving)
         }
 
-        // 死亡检测
         if (this.player.hp <= 0) {
             this.state = 'gameover'
             this._checkHighScore()
@@ -267,30 +301,37 @@ class GameScene {
             this.overlay.drawGameover(this.score, this.highScore, this.isNewRecord)
             if (window.commentaryService) {
                 window.commentaryService.queue('player_death', {
-                    score: this.score, wave: this.wave + 1, highScore: this.highScore, isNewRecord: this.isNewRecord
+                    score: this.score,
+                    wave: this.wave + 1,
+                    highScore: this.highScore,
+                    isNewRecord: this.isNewRecord,
                 })
             }
             return
         }
 
-        // 低血量检测
         if (this.player.hp > 0 && this.player.hp <= 30 && this.player.hp < this.player.maxHp) {
             if (window.commentaryService) {
-                let enemies = this.spriteManager.sprites.filter(s => s.type === 'enemy' && s.alive)
+                const enemies = this.spriteManager.sprites.filter(
+                    (s) => s.type === 'enemy' && s.alive
+                )
                 window.commentaryService.queue('low_hp', {
-                    hp: Math.ceil(this.player.hp), maxHp: this.player.maxHp, enemyCount: enemies.length
+                    hp: Math.ceil(this.player.hp),
+                    maxHp: this.player.maxHp,
+                    enemyCount: enemies.length,
                 })
             }
         }
 
-        // 敌人全灭后重新生成
-        let enemies = this.spriteManager.sprites.filter(s => s.type === 'enemy')
-        let aliveEnemies = enemies.filter(s => s.alive)
+        const enemies = this.spriteManager.sprites.filter((s) => s.type === 'enemy')
+        const aliveEnemies = enemies.filter((s) => s.alive)
         if (enemies.length > 0 && aliveEnemies.length === 0) {
             if (window.commentaryService) {
                 window.commentaryService.queue('wave_clear', {
                     wave: this.wave + 1,
-                    hp: Math.ceil(this.player.hp), maxHp: this.player.maxHp, score: this.score
+                    hp: Math.ceil(this.player.hp),
+                    maxHp: this.player.maxHp,
+                    score: this.score,
                 })
             }
             this._respawnEnemies()
@@ -302,7 +343,7 @@ class GameScene {
     }
 
     draw() {
-        if (this.state !== 'playing') return
+        if (this.state !== 'playing') { return }
 
         this.bg.draw()
         if (this.spriteManager) {

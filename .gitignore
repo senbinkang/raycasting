@@ -13,6 +13,25 @@
 node_modules/
 dist/
 
+# Vite
+.vite/
+
+# Testing
+.coverage/
+coverage/
+*.test.js.snap
+
+# Husky
+.husky/_/
+
+# Prettier
+.prettier-cache
+
+# Environment variables
+.env
+.env.local
+.env.production
+
 # Compiled Java class files
 *.class
 

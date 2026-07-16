@@ -1,36 +1,23 @@
-// Game.js
-// 负责：
-//   - 主循环 runLoop(now)：deltaTime 计算 + 驱动按键动作 + 触发绘制
-//   - 鼠标 Pointer Lock：点击 canvas 进入 FPS 视角；ESC 退出
-//   - HUD：右上角 FPS / 位置 / 朝向 提示；右下角操作提示
-//
-// 依赖注册方式：game.registerAction('w', (dt) => {...})
-// 每帧 runLoop 中会对所有已注册按键调用 action(dt)，由 Player 等模块填充。
-
-class Game {
+export class Game {
     constructor() {
         this.canvas = document.getElementById('id-canvas')
         this.context = this.canvas.getContext('2d')
         this.canvasImage = document.getElementById('id-canvas-image')
         this.contextImage = this.canvasImage.getContext('2d')
 
-        // 场景与事件
         this.scene = null
         this.keysdown = {}
         this.actions = {}
 
-        // deltaTime
         this.lastTime = performance.now()
         this.dt = 1 / 60
 
-        // FPS 统计（给 HUD 用）
         this._fpsFrames = 0
         this._fpsTimer = 0
         this.fps = 60
 
-        // === 阶段 C：鼠标 pointer lock ===
         this.mouseDX = 0
-        this.mouseSensitivity = 0.0025   // rad / px
+        this.mouseSensitivity = 0.0025
         this.isPointerLocked = false
 
         window.addEventListener('keydown', (e) => {
@@ -55,7 +42,6 @@ class Game {
             this.keysdown[e.key] = false
         })
 
-        // overlay canvas 点击触发状态切换
         const overlayCanvas = document.getElementById('id-canvas-overlay')
         if (overlayCanvas) {
             overlayCanvas.addEventListener('click', () => {
@@ -69,7 +55,6 @@ class Game {
             })
         }
 
-        // 点击 canvas 启动 Pointer Lock
         const tryLock = () => {
             if (this.canvasImage.requestPointerLock) {
                 this.canvasImage.requestPointerLock()
@@ -80,27 +65,24 @@ class Game {
         this.canvasImage.addEventListener('click', tryLock)
         this.canvas.addEventListener('click', tryLock)
 
-        // Pointer lock 状态变化监听
         const updateLockState = () => {
-            this.isPointerLocked = (document.pointerLockElement === this.canvasImage ||
-                                    document.pointerLockElement === this.canvas)
+            this.isPointerLocked =
+                document.pointerLockElement === this.canvasImage ||
+                document.pointerLockElement === this.canvas
         }
         document.addEventListener('pointerlockchange', updateLockState)
         document.addEventListener('mozpointerlockchange', updateLockState)
         document.addEventListener('webkitpointerlockchange', updateLockState)
 
-        // 鼠标移动：累加至 mouseDX，每帧交给 player.rotate
         const onMouseMove = (e) => {
-            if (!this.isPointerLocked) return
+            if (!this.isPointerLocked) {return}
             this.mouseDX += e.movementX || e.mozMovementX || e.webkitMovementX || 0
         }
         document.addEventListener('mousemove', onMouseMove)
 
-        // 禁止右键菜单
         this.canvas.addEventListener('contextmenu', (e) => e.preventDefault())
         this.canvasImage.addEventListener('contextmenu', (e) => e.preventDefault())
 
-        // 左键射击
         this.canvasImage.addEventListener('mousedown', (e) => {
             if (e.button === 0 && this.scene && this.scene.weapon) {
                 this.scene.weapon.triggerDown = true
@@ -128,18 +110,18 @@ class Game {
     }
 
     doAction() {
-        let keys = Object.keys(this.actions)
-        for (let k of keys) {
-            if (this.keysdown[k]) this.actions[k](this.dt)
+        const keys = Object.keys(this.actions)
+        for (const k of keys) {
+            if (this.keysdown[k]) {this.actions[k](this.dt)}
         }
     }
 
     update() {
-        if (!this.scene) return
+        if (!this.scene) {return}
 
         if (this.scene.state !== 'playing') {
             this.mouseDX = 0
-            if (typeof this.scene.update === 'function') this.scene.update(this.dt)
+            if (typeof this.scene.update === 'function') {this.scene.update(this.dt)}
             return
         }
 
@@ -162,20 +144,23 @@ class Game {
         }
 
         if (this.scene.weapon && (this.scene.weapon.triggerDown || this.keysdown[' '])) {
-            let enemy = this.scene.weapon.fire()
+            const enemy = this.scene.weapon.fire()
             if (enemy) {
-                let dead = enemy.takeDamage(50)
+                const dead = enemy.takeDamage(50)
                 if (dead) {
-                    if (window.audioManager) window.audioManager.playEnemyDeath(enemy.textureIndex)
+                    if (window.audioManager) {window.audioManager.playEnemyDeath(enemy.textureIndex)}
                     this.scene.addScore(enemy.score || 100)
                     if (window.commentaryService) {
-                        let remaining = this.scene.spriteManager.sprites.filter(
-                            s => s.alive && s.type === 'enemy'
+                        const remaining = this.scene.spriteManager.sprites.filter(
+                            (s) => s.alive && s.type === 'enemy'
                         ).length
-                        window.commentaryService.queue('enemy_kill', { enemyType: enemy.textureIndex, remaining })
+                        window.commentaryService.queue('enemy_kill', {
+                            enemyType: enemy.textureIndex,
+                            remaining,
+                        })
                     }
                 } else {
-                    if (window.audioManager) window.audioManager.playHit()
+                    if (window.audioManager) {window.audioManager.playHit()}
                 }
             }
         }
@@ -189,14 +174,18 @@ class Game {
     }
 
     draw() {
-        if (this.scene) this.scene.draw()
+        if (this.scene) {this.scene.draw()}
         if (this.scene && this.scene.state === 'playing') {
             if (this.scene.weapon) {
-                this.scene.weapon.draw(this.contextImage, this.canvasImage.width, this.canvasImage.height)
+                this.scene.weapon.draw(
+                    this.contextImage,
+                    this.canvasImage.width,
+                    this.canvasImage.height
+                )
             }
             this.drawHUD()
             if (this.scene.paused) {
-                let ctx = this.contextImage
+                const ctx = this.contextImage
                 ctx.fillStyle = 'rgba(0,0,0,0.45)'
                 ctx.fillRect(0, 0, this.canvasImage.width, this.canvasImage.height)
                 ctx.fillStyle = 'rgb(200,200,200)'
@@ -208,12 +197,10 @@ class Game {
         }
     }
 
-    // HUD：FPS / 位置 / 操作提示
     drawHUD() {
-        let ctx = this.contextImage
-        let width = this.canvasImage.width
+        const ctx = this.contextImage
+        const width = this.canvasImage.width
 
-        // 右上：FPS + 信息背景
         ctx.fillStyle = 'rgba(0,0,0,0.5)'
         ctx.fillRect(width - 130, 6, 124, 102)
         ctx.fillStyle = 'rgb(200,255,200)'
@@ -222,31 +209,31 @@ class Game {
         ctx.fillText('FPS: ' + this.fps.toFixed(0), width - 14, 24)
 
         if (this.scene && this.scene.player) {
-            let p = this.scene.player
-            ctx.fillText('Pos: ' + p.position.x.toFixed(1) + ', ' + p.position.y.toFixed(1), width - 14, 38)
+            const p = this.scene.player
+            ctx.fillText(
+                'Pos: ' + p.position.x.toFixed(1) + ', ' + p.position.y.toFixed(1),
+                width - 14,
+                38
+            )
             ctx.fillText('Dir: ' + p.dirX.toFixed(2) + ', ' + p.dirY.toFixed(2), width - 14, 50)
         }
 
-        // 右上：分数
         ctx.fillStyle = 'rgb(255,220,80)'
         ctx.font = 'bold 14px monospace'
         ctx.fillText('SCORE: ' + (this.scene ? this.scene.score : 0), width - 14, 66)
 
-        // 右上：最高分
         if (this.scene && this.scene.highScore > 0) {
             ctx.fillStyle = 'rgb(255,180,80)'
             ctx.font = '12px monospace'
             ctx.fillText('HI: ' + this.scene.highScore, width - 14, 80)
         }
 
-        // 右上：波次
         if (this.scene) {
             ctx.fillStyle = 'rgb(180,220,255)'
             ctx.font = 'bold 13px monospace'
             ctx.fillText('WAVE: ' + (this.scene.wave + 1) + '/5', width - 14, 96)
         }
 
-        // 左上：pointer lock 提示（仅在未锁定时显示）
         if (!this.isPointerLocked) {
             ctx.textAlign = 'left'
             ctx.fillStyle = 'rgba(0,0,0,0.55)'
@@ -257,17 +244,18 @@ class Game {
             ctx.fillText('WASD/↑↓ 移动  A/D 平移  Space 射击', 14, 46)
         }
 
-        // 左下：血条
         if (this.scene && this.scene.player) {
-            let p = this.scene.player
-            let barX = 10, barY = this.canvasImage.height - 30, barW = 200, barH = 18
+            const p = this.scene.player
+            const barX = 10,
+                barY = this.canvasImage.height - 30,
+                barW = 200,
+                barH = 18
             ctx.fillStyle = 'rgba(0,0,0,0.6)'
             ctx.fillRect(barX - 2, barY - 2, barW + 4, barH + 4)
             ctx.fillStyle = 'rgba(60,10,10,0.9)'
             ctx.fillRect(barX, barY, barW, barH)
-            let hpRatio = Math.max(0, p.hp / p.maxHp)
+            const hpRatio = Math.max(0, p.hp / p.maxHp)
             let fillColor = hpRatio > 0.5 ? 'rgb(50,200,50)' : 'rgb(230,40,40)'
-            // 无敌闪烁：每 0.1 秒交替亮白/正常
             if (p.invincibleTimer > 0 && Math.floor(p.invincibleTimer * 3) % 2 === 0) {
                 fillColor = 'rgb(255,255,255)'
             }
@@ -279,9 +267,8 @@ class Game {
             ctx.fillText('HP: ' + Math.ceil(p.hp) + '/' + p.maxHp, barX + barW / 2, barY + barH - 4)
         }
 
-        // 波次提示（屏幕中央大字渐隐）
         if (this.scene && this.scene.waveNotifyTimer > 0) {
-            let alpha = Math.min(1, this.scene.waveNotifyTimer)
+            const alpha = Math.min(1, this.scene.waveNotifyTimer)
             ctx.fillStyle = `rgba(255,220,80,${alpha})`
             ctx.font = 'bold 36px monospace'
             ctx.textAlign = 'center'
@@ -295,7 +282,6 @@ class Game {
         this.dt = Math.min((now - this.lastTime) / 1000, 0.05)
         this.lastTime = now
 
-        // FPS 统计（每 0.5s 更新一次）
         this._fpsFrames++
         this._fpsTimer += this.dt
         if (this._fpsTimer >= 0.5) {

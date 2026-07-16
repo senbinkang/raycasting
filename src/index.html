@@ -6,46 +6,7 @@
           content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
     <title>Raycasting — Wolfenstein 风格伪 3D 引擎</title>
-    <style>
-        body {
-            margin: 12px;
-            font-family: -apple-system, "Helvetica Neue", "Microsoft YaHei", Arial, sans-serif;
-            background: #1a1a1a;
-            color: #ddd;
-        }
-        h2 { margin: 0 0 12px 0; }
-        .wrap {
-            display: flex;
-            align-items: flex-start;
-            gap: 16px;
-        }
-        canvas {
-            background: #000;
-            image-rendering: pixelated;
-            border: 1px solid #444;
-            display: block;
-        }
-        .hint {
-            margin-top: 12px;
-            font-size: 13px;
-            color: #bbb;
-            line-height: 1.8;
-            background: #222;
-            border: 1px solid #333;
-            padding: 10px 16px;
-            border-radius: 4px;
-            max-width: 800px;
-        }
-        kbd {
-            background: #2e2e2e;
-            border: 1px solid #555;
-            border-radius: 3px;
-            padding: 1px 6px;
-            font-family: monospace;
-            color: #eee;
-            margin: 0 2px;
-        }
-    </style>
+    <link rel="stylesheet" href="./style.css">
 </head>
 <body>
     <h2>Raycasting — Wolfenstein 风格伪 3D 引擎（武器+音效+门 完成版）</h2>
@@ -116,23 +77,6 @@
         <b>规则：</b>5 波通关　｜　标准 DDA + 鱼眼校正　｜　程序化墙面纹理　｜　地板/天花板纹理投射　｜　雾效 + 手电筒　｜　小地图实时显示墙体/玩家/敌人/射线
     </div>
 
-    <!-- 按依赖顺序加载：utils → textures → 各模块 → 主入口 -->
-    <script src="utils.js"></script>
-    <script src="textures.js"></script>
-    <script src="Background.js"></script>
-    <script src="Player.js"></script>
-    <script src="game/Sprite.js"></script>
-    <script src="game/SpriteManager.js"></script>
-    <script src="game/Screen.js"></script>
-    <script src="game/AudioManager.js"></script>
-    <script src="game/CommentaryVoiceSample.js"></script>
-    <script src="game/CommentaryAudioCache.js"></script>
-    <script src="game/CommentaryService.js"></script>
-    <script src="game/Weapon.js"></script>
-    <script src="game/Game.js"></script>
-    <script src="game/OverlayScreen.js"></script>
-    <script src="game/GameScene.js"></script>
-
-    <script src="index.js"></script>
+    <script type="module" src="./main.js"></script>
 </body>
 </html>
