@@ -35,7 +35,22 @@
                 <label>LLM Model:</label>
                 <input id="cfg-model" type="text" value="deepseek-v4-pro" style="width:150px;background:#111;color:#ddd;border:1px solid #444;padding:4px 8px;border-radius:3px;font-size:12px;">
             </div>
-            <div>TTS 使用浏览器内置语音，不上传声音样本，也不需要云端密钥。</div>
+            <div>
+                <label>TTS 引擎:</label>
+                <select id="cfg-tts-provider" style="background:#111;color:#ddd;border:1px solid #444;padding:4px 8px;border-radius:3px;font-size:12px;">
+                    <option value="browser" selected>浏览器内置（无需密钥）</option>
+                    <option value="mimo">MiMo 语音克隆（自带密钥）</option>
+                </select>
+            </div>
+            <div id="cfg-mimo-row" style="display:none;flex-direction:column;gap:8px;">
+                <div>
+                    <label>MiMo API Key:</label>
+                    <input id="cfg-mimo-key" type="password" autocomplete="off" placeholder="仅在当前页面内存中使用，刷新后清除" style="width:100%;background:#111;color:#ddd;border:1px solid #444;padding:4px 8px;border-radius:3px;font-size:12px;">
+                </div>
+                <div>
+                    <label>语音样本: <span id="cfg-voice-status" style="color:#5f5;">已内置（于谦）</span></label>
+                </div>
+            </div>
             <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
                 <label><input id="cfg-enabled" type="checkbox" checked> 启用解说</label>
                 <label><input id="cfg-tts" type="checkbox" checked> 启用语音</label>
