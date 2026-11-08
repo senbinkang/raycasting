@@ -12,6 +12,11 @@ const SYSTEM_PROMPT = `你是一个捧哏风格的实时游戏解说员，像一
 - 不要用"玩家"来称呼，用"你"直接对玩家说话
 - 不要加引号、动作描述或任何格式标记，只输出纯解说文本`
 
+const DEEPSEEK_ENDPOINT = 'https://api.deepseek.com/v1/chat/completions'
+const MIMO_ENDPOINT = 'https://api.xiaomimimo.com/v1/chat/completions'
+const MIN_LLM_INTERVAL_MS = 10000
+const MAX_SPEECH_LENGTH = 120
+
 const EVENT_RULES = {
     player_death:     { priority: 0, cooldown: 0,   useLLM: true },
     victory:          { priority: 0, cooldown: 0,   useLLM: true },
@@ -72,7 +77,10 @@ class CommentaryService {
         this.enabled = true
         this.ttsEnabled = true
         this.ttsVolume = 0.8
-        this.ttsProvider = 'mimo'
+        this.ttsProvider = 'browser'
+        this._apiKey = ''
+        this._mimoApiKey = ''
+        this._lastLLMRequestAt = 0
         this._eventQueue = []
         this.cooldowns = {}
         this._speaking = false
@@ -178,20 +186,24 @@ class CommentaryService {
 
     async _callLLM(eventType, context) {
         const config = this.loadConfig()
-        if (!config.apiKey || !config.endpoint) { return null }
+        if (!this._apiKey) { return null }
+
+        const now = Date.now()
+        if (now - this._lastLLMRequestAt < MIN_LLM_INTERVAL_MS) { return null }
 
         const prompt = PROMPT_BUILDERS[eventType] ? PROMPT_BUILDERS[eventType](context) : ''
         if (!prompt) { return null }
 
         try {
+            this._lastLLMRequestAt = now
             const controller = new AbortController()
             const timeout = setTimeout(() => controller.abort(), 5000)
 
-            const resp = await fetch(config.endpoint, {
+            const resp = await fetch(DEEPSEEK_ENDPOINT, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${config.apiKey}`,
+                    'Authorization': `Bearer ${this._apiKey}`,
                 },
                 body: JSON.stringify({
                     model: config.model || 'deepseek-v4-pro',
@@ -205,9 +217,10 @@ class CommentaryService {
                 signal: controller.signal,
             })
             clearTimeout(timeout)
+            if (!resp.ok) { return null }
             const data = await resp.json()
             const text = data.choices?.[0]?.message?.content?.trim()
-            return text || null
+            return text ? text.slice(0, MAX_SPEECH_LENGTH) : null
         } catch (_e) {
             return null
         }
@@ -269,24 +282,23 @@ class CommentaryService {
     }
 
     async _speakMimo(text) {
-        const config = this.loadConfig()
         const voiceBase64 = this._loadVoiceSample()
-        if (!config.mimoApiKey || !voiceBase64) { return false }
+        if (!this._mimoApiKey || !voiceBase64) { return false }
 
         try {
             this._abortController = new AbortController()
             const timeout = setTimeout(() => this._abortController.abort(), 5000)
 
-            const resp = await fetch('https://api.xiaomimimo.com/v1/chat/completions', {
+            const resp = await fetch(MIMO_ENDPOINT, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'api-key': config.mimoApiKey,
+                    'api-key': this._mimoApiKey,
                 },
                 body: JSON.stringify({
                     model: 'mimo-v2.5-tts-voiceclone',
                     messages: [
-                        { role: 'assistant', content: text },
+                        { role: 'assistant', content: text.slice(0, MAX_SPEECH_LENGTH) },
                     ],
                     audio: {
                         voice: `data:audio/wav;base64,${voiceBase64}`,
@@ -298,6 +310,7 @@ class CommentaryService {
             clearTimeout(timeout)
             this._abortController = null
 
+            if (!resp.ok) { return false }
             const data = await resp.json()
             const audioBase64 = data.choices?.[0]?.message?.audio?.data
             if (!audioBase64) { return false }
@@ -339,12 +352,24 @@ class CommentaryService {
     }
 
     loadConfig() {
-        try { return JSON.parse(localStorage.getItem('commentary_config') || '{}') }
+        try {
+            const config = JSON.parse(localStorage.getItem('commentary_config') || '{}')
+            // 旧版曾将密钥写入 localStorage；读取时立即清理，不再持久化敏感数据。
+            delete config.apiKey
+            delete config.mimoApiKey
+            delete config.endpoint
+            localStorage.setItem('commentary_config', JSON.stringify(config))
+            return config
+        }
         catch (_) { return {} }
     }
 
     saveConfig(config) {
-        try { localStorage.setItem('commentary_config', JSON.stringify(config)) }
+        const safeConfig = { ...config }
+        delete safeConfig.apiKey
+        delete safeConfig.mimoApiKey
+        delete safeConfig.endpoint
+        try { localStorage.setItem('commentary_config', JSON.stringify(safeConfig)) }
         catch (_) { /* ignore */ }
     }
 
@@ -361,19 +386,19 @@ class CommentaryService {
         const mimoKeyEl = document.getElementById('cfg-mimo-key')
         const voiceStatusEl = document.getElementById('cfg-voice-status')
 
-        if (endpointEl) { endpointEl.value = cfg.endpoint || 'https://api.deepseek.com/v1/chat/completions' }
-        if (apikeyEl) { apikeyEl.value = cfg.apiKey || '' }
+        if (endpointEl) { endpointEl.value = DEEPSEEK_ENDPOINT }
+        if (apikeyEl) { apikeyEl.value = '' }
         if (modelEl) { modelEl.value = cfg.model || 'deepseek-v4-pro' }
         if (ttsEl) { ttsEl.checked = cfg.ttsEnabled !== false }
         if (volumeEl) { volumeEl.value = (cfg.ttsVolume !== undefined ? cfg.ttsVolume : 0.8) * 100 }
         if (enabledEl) { enabledEl.checked = cfg.commentaryEnabled !== false }
-        if (providerEl) { providerEl.value = cfg.ttsProvider || 'mimo' }
-        if (mimoKeyEl) { mimoKeyEl.value = cfg.mimoApiKey || '' }
+        if (providerEl) { providerEl.value = cfg.ttsProvider || 'browser' }
+        if (mimoKeyEl) { mimoKeyEl.value = '' }
 
         this.enabled = cfg.commentaryEnabled !== false
         this.ttsEnabled = cfg.ttsEnabled !== false
         this.ttsVolume = cfg.ttsVolume !== undefined ? cfg.ttsVolume : 0.8
-        this.ttsProvider = cfg.ttsProvider || 'mimo'
+        this.ttsProvider = cfg.ttsProvider || 'browser'
 
         this._updateVoiceStatus(voiceStatusEl)
 
@@ -390,15 +415,14 @@ class CommentaryService {
 
         const save = () => {
             const newCfg = {
-                endpoint: endpointEl?.value || '',
-                apiKey: apikeyEl?.value || '',
                 model: modelEl?.value || 'deepseek-v4-pro',
                 ttsEnabled: ttsEl?.checked ?? true,
                 ttsVolume: (parseInt(volumeEl?.value) || 80) / 100,
                 commentaryEnabled: enabledEl?.checked ?? true,
-                ttsProvider: providerEl?.value || 'mimo',
-                mimoApiKey: mimoKeyEl?.value || '',
+                ttsProvider: providerEl?.value || 'browser',
             }
+            this._apiKey = apikeyEl?.value.trim() || ''
+            this._mimoApiKey = mimoKeyEl?.value.trim() || ''
             this.saveConfig(newCfg)
             this.enabled = newCfg.commentaryEnabled
             this.ttsEnabled = newCfg.ttsEnabled

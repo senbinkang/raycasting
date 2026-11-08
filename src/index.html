@@ -25,11 +25,11 @@
         <div style="margin-top:10px;display:flex;flex-direction:column;gap:8px;">
             <div>
                 <label>LLM API Endpoint:</label>
-                <input id="cfg-endpoint" type="text" value="https://api.deepseek.com/v1/chat/completions" style="width:100%;background:#111;color:#ddd;border:1px solid #444;padding:4px 8px;border-radius:3px;font-size:12px;">
+                <input id="cfg-endpoint" type="text" value="https://api.deepseek.com/v1/chat/completions" readonly aria-readonly="true" style="width:100%;background:#111;color:#888;border:1px solid #444;padding:4px 8px;border-radius:3px;font-size:12px;">
             </div>
             <div>
                 <label>LLM API Key:</label>
-                <input id="cfg-apikey" type="password" placeholder="sk-..." style="width:100%;background:#111;color:#ddd;border:1px solid #444;padding:4px 8px;border-radius:3px;font-size:12px;">
+                <input id="cfg-apikey" type="password" autocomplete="off" placeholder="仅在当前页面内存中使用，刷新后清除" style="width:100%;background:#111;color:#ddd;border:1px solid #444;padding:4px 8px;border-radius:3px;font-size:12px;">
             </div>
             <div>
                 <label>LLM Model:</label>
@@ -38,14 +38,14 @@
             <div>
                 <label>TTS 引擎:</label>
                 <select id="cfg-tts-provider" style="background:#111;color:#ddd;border:1px solid #444;padding:4px 8px;border-radius:3px;font-size:12px;">
-                    <option value="mimo">MiMo 语音克隆（于谦）</option>
-                    <option value="browser">浏览器内置</option>
+                    <option value="browser" selected>浏览器内置（无需密钥）</option>
+                    <option value="mimo">MiMo 语音克隆（自带密钥）</option>
                 </select>
             </div>
             <div id="cfg-mimo-row" style="display:none;flex-direction:column;gap:8px;">
                 <div>
                     <label>MiMo API Key:</label>
-                    <input id="cfg-mimo-key" type="password" placeholder="sk-..." style="width:100%;background:#111;color:#ddd;border:1px solid #444;padding:4px 8px;border-radius:3px;font-size:12px;">
+                    <input id="cfg-mimo-key" type="password" autocomplete="off" placeholder="仅在当前页面内存中使用，刷新后清除" style="width:100%;background:#111;color:#ddd;border:1px solid #444;padding:4px 8px;border-radius:3px;font-size:12px;">
                 </div>
                 <div>
                     <label>语音样本: <span id="cfg-voice-status" style="color:#5f5;">已内置（于谦）</span></label>
