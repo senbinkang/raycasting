@@ -38,8 +38,8 @@
             <div>
                 <label>TTS 引擎:</label>
                 <select id="cfg-tts-provider" style="background:#111;color:#ddd;border:1px solid #444;padding:4px 8px;border-radius:3px;font-size:12px;">
-                    <option value="browser" selected>浏览器内置（无需密钥）</option>
-                    <option value="mimo">MiMo 语音克隆（自带密钥）</option>
+                    <option value="mimo" selected>MiMo 语音克隆（失败时自动回退）</option>
+                    <option value="browser">浏览器内置（无需密钥）</option>
                 </select>
             </div>
             <div id="cfg-mimo-row" style="display:none;flex-direction:column;gap:8px;">

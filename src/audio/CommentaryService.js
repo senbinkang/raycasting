@@ -77,7 +77,7 @@ class CommentaryService {
         this.enabled = true
         this.ttsEnabled = true
         this.ttsVolume = 0.8
-        this.ttsProvider = 'browser'
+        this.ttsProvider = 'mimo'
         this._apiKey = ''
         this._mimoApiKey = ''
         this._lastLLMRequestAt = 0
@@ -351,6 +351,15 @@ class CommentaryService {
         await this._mimoAssetsPromise
     }
 
+    _preloadMimoAssets() {
+        const preload = () => { this._ensureMimoAssets() }
+        if ('requestIdleCallback' in window) {
+            window.requestIdleCallback(preload, { timeout: 5000 })
+        } else {
+            setTimeout(preload, 1500)
+        }
+    }
+
     async _playAudioBase64(base64) {
         return new Promise((resolve) => {
             const audio = new Audio()
@@ -412,13 +421,13 @@ class CommentaryService {
         if (ttsEl) { ttsEl.checked = cfg.ttsEnabled !== false }
         if (volumeEl) { volumeEl.value = (cfg.ttsVolume !== undefined ? cfg.ttsVolume : 0.8) * 100 }
         if (enabledEl) { enabledEl.checked = cfg.commentaryEnabled !== false }
-        if (providerEl) { providerEl.value = cfg.ttsProvider || 'browser' }
+        if (providerEl) { providerEl.value = cfg.ttsProvider || 'mimo' }
         if (mimoKeyEl) { mimoKeyEl.value = '' }
 
         this.enabled = cfg.commentaryEnabled !== false
         this.ttsEnabled = cfg.ttsEnabled !== false
         this.ttsVolume = cfg.ttsVolume !== undefined ? cfg.ttsVolume : 0.8
-        this.ttsProvider = cfg.ttsProvider || 'browser'
+        this.ttsProvider = cfg.ttsProvider || 'mimo'
 
         this._updateVoiceStatus(voiceStatusEl)
 
@@ -429,9 +438,12 @@ class CommentaryService {
                 c.ttsProvider = providerEl.value
                 this.saveConfig(c)
                 this._toggleMimoFields()
+                if (this.ttsProvider === 'mimo') { this._preloadMimoAssets() }
             })
             this._toggleMimoFields()
         }
+
+        if (this.ttsProvider === 'mimo') { this._preloadMimoAssets() }
 
         const save = () => {
             const newCfg = {
@@ -439,7 +451,7 @@ class CommentaryService {
                 ttsEnabled: ttsEl?.checked ?? true,
                 ttsVolume: (parseInt(volumeEl?.value) || 80) / 100,
                 commentaryEnabled: enabledEl?.checked ?? true,
-                ttsProvider: providerEl?.value || 'browser',
+                ttsProvider: providerEl?.value || 'mimo',
             }
             this._apiKey = apikeyEl?.value.trim() || ''
             this._mimoApiKey = mimoKeyEl?.value.trim() || ''
