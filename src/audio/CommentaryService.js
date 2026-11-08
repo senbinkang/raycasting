@@ -90,7 +90,8 @@ class CommentaryService {
         this._abortController = null
         this._speechResolve = null
         this._genId = 0
-        this._audioCache = new Map(Object.entries(window.__COMMENTARY_AUDIO_CACHE__ || {}))
+        this._audioCache = new Map()
+        this._mimoAssetsPromise = null
     }
 
     queue(eventType, context = {}) {
@@ -233,7 +234,11 @@ class CommentaryService {
         const rule = EVENT_RULES[eventType]
         const isTemplate = rule && !rule.useLLM
 
-        if (isTemplate) {
+        if (this.ttsProvider === 'mimo') {
+            await this._ensureMimoAssets()
+        }
+
+        if (isTemplate && this.ttsProvider === 'mimo') {
             const cached = this._audioCache.get(text)
             if (cached) {
                 this._speaking = true
@@ -282,6 +287,7 @@ class CommentaryService {
     }
 
     async _speakMimo(text) {
+        await this._ensureMimoAssets()
         const voiceBase64 = this._loadVoiceSample()
         if (!this._mimoApiKey || !voiceBase64) { return false }
 
@@ -329,6 +335,20 @@ class CommentaryService {
             if (userSample) { return userSample }
         } catch (_) { /* ignore */ }
         return window.__COMMENTARY_VOICE_SAMPLE__ || ''
+    }
+
+    async _ensureMimoAssets() {
+        if (!this._mimoAssetsPromise) {
+            this._mimoAssetsPromise = Promise.all([
+                import('./CommentaryVoiceSample.js'),
+                import('./CommentaryAudioCache.js'),
+            ]).then(() => {
+                this._audioCache = new Map(Object.entries(window.__COMMENTARY_AUDIO_CACHE__ || {}))
+            }).catch(() => {
+                this._mimoAssetsPromise = null
+            })
+        }
+        await this._mimoAssetsPromise
     }
 
     async _playAudioBase64(base64) {
